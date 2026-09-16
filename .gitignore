@@ -1,0 +1,41 @@
+# Python cache
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ipynb_checkpoints/
+
+# Virtual environments
+.venv/
+venv/
+env/
+.env
+.env.*
+!.env.example
+
+# IDE and OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Raw and generated datasets
+data/raw/**
+data/processed/**
+
+# Training outputs
+checkpoints/**
+!checkpoints/README.md
+runs/
+wandb/
+logs/
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# Packaging
+build/
+dist/
+*.egg-info/

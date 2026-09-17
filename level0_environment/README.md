@@ -256,4 +256,4 @@ python -m pip install -r requirements.txt
 |---|---|
 | `README.md` | 本文档，Level 0 的环境说明与验收记录 |
 | `check_env.py` | 环境验证脚本，检查 Python / PyTorch / CUDA / GPU |
-| `level0_learning_document.md` | 学习过程中记录的问题与思考 |
+| 学习文档 | 已并入项目根目录的 [`docs/learning-log.md`](../docs/learning-log.md)，全项目统一维护一份 |

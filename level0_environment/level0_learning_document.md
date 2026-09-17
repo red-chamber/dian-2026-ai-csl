@@ -1,7 +1,7 @@
 ## check的运行结果
 
 ```
-(dian-ai) lenovo@Legion-LAPTOP-CSL:~/projects/dian-2026-ai-csl % python level0_environment/check_environment.py
+(dian-ai) lenovo@Legion-LAPTOP-CSL:~/projects/dian-2026-ai-csl % python level0_environment/check_env.py
 Python: 3.11.9
 PyTorch: 2.11.0+cu128
 PyTorch CUDA runtime: 12.8

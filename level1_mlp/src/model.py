@@ -21,42 +21,37 @@ class MLP(nn.Module):
 
         self.flatten = nn.Flatten() # 创建了一个可调用对象，类似函数，用于展平 1 到最后一维
 
+        # 输入层(784) -> 隐藏层1(512) -> 隐藏层2(256) -> 输出层(10)
+        # 一个隐藏层 = Linear -> ReLU -> Dropout
         layers = [] 
-        prev_dim = in_features # 前一层输出的维度，也是这一层输入的维度
-        for hidden_dim in self.hidden_sizes:
+        prev_dim = in_features                              # 前一层输出的维度，也是这一层输入的维度
+        for hidden_dim in self.hidden_sizes:                # 当前层的输出维度
             layers.append(nn.Linear(prev_dim, hidden_dim))  # 线性变换(仿射)：y = xW^T + b
             layers.append(nn.ReLU(inplace=True))            # ReLU：负数变 0，正数不变
             if dropout > 0:
                 layers.append(nn.Dropout(p=dropout))        # 训练时随机失活
-            prev_dim = hidden_dim
+            prev_dim = hidden_dim                           # 更新
 
-        self.hidden_layers = nn.ModuleList(layers)
-        # 输出层：最后一个隐藏层 -> 10 个类别打分
-        self.classifier = nn.Linear(prev_dim, num_classes)
+        self.hidden_layers = nn.ModuleList(layers)          # 把子模块纳入父模块(MLP)的注册表，使 PyTorch 能识别
+        self.classifier = nn.Linear(prev_dim, num_classes)  # 分类器，只有 Linear
 
         self._init_weights()
 
+    # 初始化权重
     def _init_weights(self) -> None:
-        """权重初始化。
 
-        全连接层的默认初始化对 MNIST 这种小任务够用，但显式写出来更清楚：
-        权重用 Kaiming 初始化（配合 ReLU 能让每层输出方差保持稳定），偏置置零。
-        """
+        # 遍历每个模块
         for module in self.modules():
+            # 过滤出 Linear 层
             if isinstance(module, nn.Linear):
-                nn.init.kaiming_normal_(module.weight, nonlinearity="relu")
-                nn.init.zeros_(module.bias)
+                nn.init.kaiming_normal_(module.weight, nonlinearity="relu") # Kaiming 初始化
+                nn.init.zeros_(module.bias) # 把偏置全置零
 
+    # 前向传播
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        """前向传播：输入一批图片，输出每个类别的打分。
 
-        Args:
-            x: 形状 (N, 1, 28, 28) 或已展平的 (N, 784)。
-        Returns:
-            形状 (N, 10) 的打分（logits）。
-        """
         x = self.flatten(x)                  # (N, 1, 28, 28) -> (N, 784)
-        for layer in self.hidden_layers:     # (N, 784) -> ... -> (N, 256)
+        for layer in self.hidden_layers:     # (N, 784) -> (N, 512) -> (N, 256)
             x = layer(x)
         logits = self.classifier(x)          # (N, 256) -> (N, 10)
         return logits
@@ -99,18 +94,3 @@ def build_model_from_config(config: dict) -> MLP:
         num_classes=config.get("num_classes", 10),
         dropout=config.get("dropout", 0.0),  # 推理时会 eval()，dropout 不生效
     )
-
-
-if __name__ == "__main__":
-    # 直接运行本文件时，打印结构、参数量和一次前向的形状变化，方便自己核对。
-    model = MLP()
-    print(model)
-    print(f"\n可训练参数量: {count_parameters(model):,}")
-
-    dummy = torch.randn(4, 1, 28, 28)
-    print(f"\n输入形状 : {tuple(dummy.shape)}")
-    flat = model.flatten(dummy)
-    print(f"展平后   : {tuple(flat.shape)}   <- 28*28 = {28 * 28}")
-    with torch.no_grad():
-        out = model(dummy)
-    print(f"输出形状 : {tuple(out.shape)}   <- 每张图 10 个类别的打分")

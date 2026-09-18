@@ -19,6 +19,9 @@ env/
 .DS_Store
 Thumbs.db
 
+# Claude Code local settings
+.claude/
+
 # Raw and generated datasets
 data/raw/**
 data/processed/**

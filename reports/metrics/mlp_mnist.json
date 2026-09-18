@@ -1,6 +1,6 @@
 {
   "date": "2026-09-17 23:46:26",
-  "git_commit": "a3ad540",
+  "git_commit": "871020a",
   "model": "MLP [512, 256]",
   "params": 535818,
   "dataset": "MNIST (train 90% / val 10% / test 官方 10000)",

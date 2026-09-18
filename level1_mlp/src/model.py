@@ -37,8 +37,6 @@ flatten 把 28x28 的二维结构压成了 784 个互不相干的数，
 而且第一层就有 784*512 个参数，绝大部分算力花在了重复学习同一套局部模式上。
 """
 
-from __future__ import annotations
-
 import torch
 import torch.nn as nn
 

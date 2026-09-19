@@ -1,3 +1,9 @@
+'''模型的各模块声明
+    MLP 类：主要模块定义
+    count_parameters：统计参数量
+    build_model_from_config：根据 checkpoint 里存的结构参数重建模型
+'''
+
 import torch
 import torch.nn as nn
 
@@ -67,8 +73,7 @@ class MLP(nn.Module):
 
 
 def count_parameters(model: nn.Module, trainable_only: bool = True) -> int:
-    """统计参数量。
-
+    """统计参数量
     Level 2 要从「参数量」角度对比 MLP 与 CNN，所以这个函数放在 model.py 里，
     两个模型共用同一个口径。
 
@@ -84,7 +89,7 @@ def count_parameters(model: nn.Module, trainable_only: bool = True) -> int:
 
 
 def build_model_from_config(config: dict) -> MLP:
-    """根据 checkpoint 里存的结构参数重建模型（推理时用）。
+    """根据 checkpoint 里存的结构参数重建模型（推理时用）
 
     必须按训练时的结构原样重建，否则权重对不上号。
     """

@@ -17,7 +17,7 @@
 | **3 经典网络** | 理解 AlexNet → VGG → ResNet 的演进，并掌握 U-Net 的编码器-解码器与跳跃连接 | `level3_classic_networks/` | 在已有代码基础上分别实现 AlexNet、ResNet |
 | **4 U-Net 擦除** | 用 U-Net 做手写内容擦除：保留印刷文字/表格/题目结构，擦掉手写部分 | `level4_unet/` | 输出 PSNR/SSIM 演化曲线；结果不出现全白/全黑；记录训练时长与费用（预算约 30 元） |
 
-> 当前进度：**Level 0 已完成**，Level 1–4 待做。详见 [`docs/learning-log.md`](docs/learning-log.md)。
+> 当前进度：**Level 0、Level 1 已完成**，Level 2–4 待做。详见 [`docs/learning-log.md`](docs/learning-log.md)。
 
 ## 硬件与软件环境
 
@@ -60,7 +60,12 @@ dian-2026-ai-csl/
 ├── level0_environment/             # ✅ 已完成
 │   ├── README.md                   #   环境说明与验收记录
 │   └── check_env.py                #   环境验证脚本
-├── level1_mlp/src/                 # 待填充
+├── level1_mlp/                     # ✅ 已完成
+│   ├── README.md                   #   网络结构、超参数与实验结果
+│   └── src/
+│       ├── model.py                #   MLP 定义、参数量统计、按配置重建模型
+│       ├── train.py                #   训练 / 验证循环、保存最优权重、导出指标
+│       └── infer.py                #   单张图片推理
 ├── level2_cnn/src/                 # 待填充
 ├── level3_classic_networks/src/    # 待填充
 ├── level4_unet/
@@ -76,7 +81,7 @@ dian-2026-ai-csl/
     └── samples/                    # 推理结果对比图
 ```
 
-> **注意**：`data/raw`、`level1_mlp/src` 等目录目前是空的，**Git 不跟踪空目录**，克隆下来不会有这些空壳。
+> **注意**：`data/raw`、`level2_cnn/src` 等目录目前是空的，**Git 不跟踪空目录**，克隆下来不会有这些空壳。
 > 往里放进第一个文件后，目录才会真正进入版本管理。
 >
 > 学习文档只保留 `docs/learning-log.md` 这一份（题目要求 2：在学习过程中维护一个学习文档），
@@ -166,19 +171,59 @@ MNIST / Fashion-MNIST（Level 1–2）由 `torchvision.datasets` 自动下载，
 
 ## 运行训练
 
-_待 Level 1 完成后补充。_
+环境准备见[环境安装与复现](#环境安装与复现)，需先 `conda activate dian-ai`。
+
+```bash
+# Level 1：MLP on MNIST（默认参数即为实验 01 的配置，可直接复现）
+python level1_mlp/src/train.py
+
+# 覆盖超参数
+python level1_mlp/src/train.py --epochs 15 --hidden-sizes 512 256 128 --dropout 0.3 --tag mlp_3layer
+```
+
+训练产出：
+
+| 产物 | 路径 |
+|---|---|
+| 最优权重（按验证准确率保存） | `checkpoints/<tag>_best.pt` |
+| Loss / Accuracy 曲线 | `reports/figures/<tag>_curves.png` |
+| 完整指标与逐轮 history | `reports/metrics/<tag>.json` |
+
+训练结束会在终端打印一段实验摘要，可直接填进 [`docs/experiment-log.md`](docs/experiment-log.md)。
 
 ## 单张图片推理
 
-_待 Level 1 完成后补充。_
+```bash
+# 取测试集第 0 张（--index 与 --image 互斥，必须二选一）
+python level1_mlp/src/infer.py --index 0
+
+# 自己的图片，png/jpg，白底黑字或黑底白字均可
+python level1_mlp/src/infer.py --image path/to/digit.png
+```
+
+终端打印 10 个类别的概率，同时把「原图 + 概率条形图」存到 `reports/samples/mlp_infer_<标识>.png`。
 
 ## 实验结果
 
-_待各 Level 完成后补充。_
+### Level 1：MLP on MNIST
+
+| 项目 | 值 |
+|---|---|
+| **测试集准确率** | **98.16%**（验收要求 ≥ 90% ✅） |
+| 参数量 | 535,818 |
+| 最优 epoch | 第 7 轮（验证准确率 97.98%） |
+| 训练时长 | 37.58 s |
+| GPU 显存峰值 | 28.9 MB |
+
+曲线见 `reports/figures/mlp_mnist_curves.png`，逐项记录见 [`docs/experiment-log.md`](docs/experiment-log.md)，网络结构与超参数见 [`level1_mlp/README.md`](level1_mlp/README.md)。
+
+### Level 2–4
+
+_待完成。_
 
 ## 已知问题
 
-- 空目录（`data/raw`、`level1_mlp/src` 等）不会被 Git 跟踪，克隆后需手动创建或靠首次提交带入。
+- 空目录（`data/raw`、`level2_cnn/src` 等）不会被 Git 跟踪，克隆后需手动创建或靠首次提交带入。
 - `data/` 下除 `raw/`、`processed/` 之外的路径（如 `data/foo.csv`）**不在** `.gitignore` 忽略范围内，提交前需留意。
 
 ## AI 使用说明

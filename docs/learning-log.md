@@ -76,7 +76,7 @@ AI 起草了 `check_env.py`，以及 Level 0 的环境说明 `README.md`，以�
 
 1. 为什么 AI 写了命令行参数
 
-想试不同学习率，如果直接改代码要在源码里改，改一次污染一次 Git 历史，还容易忘记改回。用命令行则命令本身就是实验记录，有利于复现结果和记录
+想试不同学习率，如果直接改代码要在源码里改，容易污染 Git 历史
 
 ### 实测结果
 
@@ -91,3 +91,57 @@ AI 起草了 `check_env.py`，以及 Level 0 的环境说明 `README.md`，以�
 ### AI 使用记录
 
 `model.py`、`train.py`、`infer.py` 都由 AI 起草。我阅读时逐行加了注释，并删掉用不到的调试参数。
+
+---
+
+## 2026-09-20 ｜ Level 1：infer.py 的理解
+
+### 目标
+
+读懂推理脚本，重点是搞清楚"推理"和"训练"到底差在哪，以及一个 `.pt` 文件怎么变回可用的模型。
+
+### 学到的概念
+
+1. While inferring:
+
+1). `model.eval()` 关掉 Dropout，固定行为
+2). `@torch.no_grad()` 关掉自动求导，不建计算图，省显存。
+
+2. What are saved in checkpoint(ckpt)?
+
+| 类别 | 键 | 作用 |
+|---|---|---|
+| 权重 | `model_state` | 6 个张量，535,818 个参数，占文件体积 99% |
+| 结构 | `model_config` | 重建模型 |
+| 元信息 | `epoch` / `val_acc` / `test_acc` / `args` | 确认实验版本 |
+
+3. Four steps in loading weights:
+
+1). `torch.load(path, map_location=device)` —— 让 GPU 上存的权重也能在 CPU 机器上读出来，标准化写法
+2). `build_model_from_config(ckpt["model_config"])` —— 加载整体结构
+3). `model.load_state_dict(ckpt["model_state"])` —— load weights
+4). `model.to(device)` and `model.eval()` —— 导入设备，开启评估模式
+
+4. Why the weight files are named ".pt"?
+
+It's a standard naming convention standing for PyTorch.Likely,".pth" is also right.
+
+### 遇到的问题
+
+1. `--index 0` cannot be written as `if args.index:`
+
+`0` 在 Python 里是 falsy，第一次 index 为 0 时必然发生错误。
+
+解决：`if args.index is not None:` 是正确且规范的写法
+
+### 实测结果
+
+| 项目 | 值 |
+|---|---|
+| 推理命令 | `python level1_mlp/src/infer.py --index 0` |
+| 输出 | 终端打印 10 个类别的概率与条形图 |
+| 结果图 | `reports/samples/mlp_infer_test_00000.png`（左原图 / 右概率条形图） |
+
+### AI 使用记录
+
+`infer.py` 由 AI 起草。我逐段阅读时向 AI 追问了每一处的语法与设计理由，并加上了白底图片的反色逻辑。

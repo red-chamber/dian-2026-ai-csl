@@ -145,3 +145,54 @@ It's a standard naming convention standing for PyTorch.Likely,".pth" is also rig
 ### AI 使用记录
 
 `infer.py` 由 AI 起草。我逐段阅读时向 AI 追问了每一处的语法与设计理由，并加上了白底图片的反色逻辑。
+
+---
+
+## 2026-09-20 ｜ Level 2：CNN model.py 的理解
+
+### 目标
+
+读懂 CNN 的定义
+
+### 学到的概念
+
+1. The biggest difference from MLP: keeping the 4D shape
+
+MLP 拿到 `(N, 1, 28, 28)` 的第一件事是 `Flatten`，立刻压成 `(N, 784)`，退化成一维，但CNN 全程保持 `(N, C, H, W)` 四维，直到分类前才展平
+
+2. Where the shape `(N, 1, 28, 28)` comes from
+
+| 维度 | 值 | 来源 |
+|---|---|---|
+| N | 128 | `DataLoader(batch_size=128)` 一次取多少张 |
+| 1 | 1 | MNIST 只有一个通道 |
+| 28, 28 | 28×28 | 数据集本身的图片尺寸 |
+
+3. Kaiming 初始化的原理：让每层输出的方差保持不变
+
+`y = Wx + b`，假设 w、x 零均值且独立，则 `Var(y) = fan_in · Var(w) · Var(x)`。
+要 `Var(y) = Var(x)`，需要 `std(w) = 1/sqrt(fan_in)`。
+但 ReLU 把负半轴置零，方差减半，所以要再补一个 2 倍
+
+### 遇到的问题
+
+1. 卷积核的初始权重比全连接层大，以为写错了
+
+`Conv2d(1, 32, 3)` 初始化出来的权重 std 约 0.47，而 `Linear(3136, 32)` 只有 0.025，差了近 20 倍。
+原因：`fan_in` 越小，为了维持方差稳定，单个权重就需要越大，所以这是正常的
+
+### 实测结果
+
+直接运行 `python level2_cnn/src/model.py`，核对结构与形状流：
+
+| 项目 | 值 |
+|---|---|
+| 可训练参数量 | **119,530**（与 docstring 手算式一致） |
+| 输入形状 | `(4, 1, 28, 28)` |
+| 卷积 + 池化后 | `(4, 64, 7, 7)` |
+| 展平后 | `(4, 3136)`（= 64×7×7） |
+| 输出形状 | `(4, 10)`，每张图 10 个类别的打分 |
+
+### AI 使用记录
+
+CNN 的 `model.py` 由 AI 起草。我阅读时逐段追问了形状变化、`padding` 的作用和 Kaiming 初始化的推导。

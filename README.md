@@ -17,7 +17,7 @@
 | **3 经典网络** | 理解 AlexNet → VGG → ResNet 的演进，并掌握 U-Net 的编码器-解码器与跳跃连接 | `level3_classic_networks/` | 在已有代码基础上分别实现 AlexNet、ResNet |
 | **4 U-Net 擦除** | 用 U-Net 做手写内容擦除：保留印刷文字/表格/题目结构，擦掉手写部分 | `level4_unet/` | 输出 PSNR/SSIM 演化曲线；结果不出现全白/全黑；记录训练时长与费用（预算约 30 元） |
 
-> 当前进度：**Level 0、Level 1 已完成**，Level 2–4 待做。详见 [`docs/learning-log.md`](docs/learning-log.md)。
+> 当前进度：**Level 0、Level 1 已完成**；Level 2 代码已就绪、待训练；Level 3–4 待做。详见 [`docs/learning-log.md`](docs/learning-log.md)。
 
 ## 硬件与软件环境
 
@@ -66,7 +66,13 @@ dian-2026-ai-csl/
 │       ├── model.py                #   MLP 定义、参数量统计、按配置重建模型
 │       ├── train.py                #   训练 / 验证循环、保存最优权重、导出指标
 │       └── infer.py                #   单张图片推理
-├── level2_cnn/src/                 # 待填充
+├── level2_cnn/                     # 🚧 代码就绪，待训练
+│   ├── README.md                   #   网络结构、超参数与对比方法
+│   └── src/
+│       ├── model.py                #   CNN 定义、参数量统计、按配置重建模型
+│       ├── train.py                #   训练 / 验证循环（复制自 Level 1，只换模型）
+│       ├── infer.py                #   单张图片推理
+│       └── compare.py              #   MLP vs CNN 四角度对比
 ├── level3_classic_networks/src/    # 待填充
 ├── level4_unet/
 │   ├── src/
@@ -81,7 +87,7 @@ dian-2026-ai-csl/
     └── samples/                    # 推理结果对比图
 ```
 
-> **注意**：`data/raw`、`level2_cnn/src` 等目录目前是空的，**Git 不跟踪空目录**，克隆下来不会有这些空壳。
+> **注意**：`data/raw`、`level3_classic_networks/src` 等目录目前是空的，**Git 不跟踪空目录**，克隆下来不会有这些空壳。
 > 往里放进第一个文件后，目录才会真正进入版本管理。
 >
 > 学习文档只保留 `docs/learning-log.md` 这一份（题目要求 2：在学习过程中维护一个学习文档），
@@ -223,7 +229,7 @@ _待完成。_
 
 ## 已知问题
 
-- 空目录（`data/raw`、`level2_cnn/src` 等）不会被 Git 跟踪，克隆后需手动创建或靠首次提交带入。
+- 空目录（`data/raw`、`level3_classic_networks/src` 等）不会被 Git 跟踪，克隆后需手动创建或靠首次提交带入。
 - `data/` 下除 `raw/`、`processed/` 之外的路径（如 `data/foo.csv`）**不在** `.gitignore` 忽略范围内，提交前需留意。
 
 ## AI 使用说明

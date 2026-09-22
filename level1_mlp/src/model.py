@@ -1,11 +1,35 @@
-'''模型的各模块声明
+"""模型的各模块声明
     MLP 类：主要模块定义
-    count_parameters：统计参数量
     build_model_from_config：根据 checkpoint 里存的结构参数重建模型
-'''
+
+count_parameters 是三个 Level 共用的口径（累加 numel()），已经搬到 common/utils.py，
+这里 import 出来再导出，是为了让 `from model import count_parameters` 这种写法照旧可用。
+
+MLP 的参数量手算方式（不靠 PyTorch 也能核对）：
+
+    第一层  784*512 + 512    = 401,920
+    第二层  512*256 + 256    = 131,328
+    输出层  256*10  + 10     =   2,570
+    合计                     = 535,818
+"""
+
+from __future__ import annotations
+
+import sys
+from pathlib import Path
+
+# 脚本可能在任意工作目录下运行，先把仓库根补进 sys.path 才能 import common
+_ROOT = Path(__file__).resolve().parents[2]
+if str(_ROOT) not in sys.path:
+    sys.path.insert(0, str(_ROOT))
 
 import torch
 import torch.nn as nn
+
+from common.utils import count_parameters  # noqa: F401  (重新导出，旧的 import 写法照旧可用)
+
+__all__ = ["MLP", "count_parameters", "build_model_from_config"]
+
 
 class MLP(nn.Module):
 
@@ -70,22 +94,6 @@ class MLP(nn.Module):
             "num_classes": self.num_classes,
             "dropout": self.dropout_p,
         }
-
-
-def count_parameters(model: nn.Module, trainable_only: bool = True) -> int:
-    """统计参数量
-    Level 2 要从「参数量」角度对比 MLP 与 CNN，所以这个函数放在 model.py 里，
-    两个模型共用同一个口径。
-
-    MLP 的参数量手算方式（不靠 PyTorch 也能核对）：
-        第一层  784*512 + 512    = 401920
-        第二层  512*256 + 256    = 131328
-        输出层  256*10  + 10     =   2570
-        合计                     = 535818
-    """
-    if trainable_only:
-        return sum(p.numel() for p in model.parameters() if p.requires_grad)
-    return sum(p.numel() for p in model.parameters())
 
 
 def build_model_from_config(config: dict) -> MLP:

@@ -13,21 +13,27 @@ from __future__ import annotations
 import argparse
 import importlib.util
 import json
+import sys
 from pathlib import Path
 
-import matplotlib
+# 脚本可能在任意目录下运行，先把仓库根补进 sys.path 才能 import common
+_ROOT = Path(__file__).resolve().parents[2]
+if str(_ROOT) not in sys.path:
+    sys.path.insert(0, str(_ROOT))
+
+import matplotlib  # noqa: E402
 matplotlib.use("Agg")
-import matplotlib.pyplot as plt
+import matplotlib.pyplot as plt  # noqa: E402
 
-import numpy as np
-import torch
-import torch.nn.functional as F
-from torch.utils.data import DataLoader
-from torchvision import datasets, transforms
+import numpy as np  # noqa: E402
+import torch  # noqa: E402
+import torch.nn.functional as F  # noqa: E402
+from torch.utils.data import DataLoader  # noqa: E402
+from torchvision import datasets, transforms  # noqa: E402
 
-from model import count_parameters
+from common.utils import PROJECT_ROOT, count_parameters, load_metrics  # noqa: E402
+from model import build_model_from_config  # noqa: E402
 
-PROJECT_ROOT = Path(__file__).resolve().parents[2]
 LEVEL1_SRC = PROJECT_ROOT / "level1_mlp" / "src"
 
 MNIST_MEAN, MNIST_STD = 0.1307, 0.3081
@@ -71,17 +77,6 @@ def load_model(ckpt_path: Path, builder, device: str):
     model.load_state_dict(ckpt["model_state"])
     model.to(device).eval()
     return model, ckpt
-
-
-def load_metrics(tag: str) -> dict:
-    """读取训练时导出的 metrics json
-    
-    """
-    path = PROJECT_ROOT / "reports" / "metrics" / f"{tag}.json"
-    if not path.exists():
-        raise FileNotFoundError(f"找不到实验指标：{path}\n")
-    with open(path, encoding="utf-8") as f:
-        return json.load(f)
 
 
 @torch.no_grad()
@@ -278,7 +273,7 @@ def main() -> None:
     # Load the two models
     level1 = _load_level1_model_module()
     mlp, mlp_ckpt = load_model(Path(args.mlp_ckpt), level1.build_model_from_config, device)
-    cnn, cnn_ckpt = load_model(Path(args.cnn_ckpt), load_cnn_builder(), device)
+    cnn, cnn_ckpt = load_model(Path(args.cnn_ckpt), build_model_from_config, device)
 
     mlp_name = f"MLP {mlp_ckpt['model_config']['hidden_sizes']}"
     cnn_name = f"CNN {cnn_ckpt['model_config']['conv_channels']}"
@@ -404,17 +399,6 @@ def main() -> None:
     with open(out_path, "w", encoding="utf-8") as f:
         json.dump(result, f, ensure_ascii=False, indent=2)
     print(f"\nJSON saved in {out_path}")
-
-
-def load_cnn_builder():
-    """返回 CNN 的重建函数。
-
-    单独包一层是为了在 main 里和 Level 1 的 builder 对称地传参，
-    同时避免在模块顶层就 import 本目录的 model（那样会和 Level 1 的 model.py 撞名）
-    """
-    from model import build_model_from_config
-
-    return build_model_from_config
 
 
 if __name__ == "__main__":

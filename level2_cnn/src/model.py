@@ -1,7 +1,18 @@
 import torch
 import torch.nn as nn
 
-'''defination'''
+import sys
+from pathlib import Path
+
+# 脚本可能在任意工作目录下运行，先把仓库根补进 sys.path 才能 import common
+_ROOT = Path(__file__).resolve().parents[2]
+if str(_ROOT) not in sys.path:
+    sys.path.insert(0, str(_ROOT))
+
+from common.utils import count_parameters  # noqa: F401  (重新导出，旧的 import 写法照旧可用)
+
+__all__ = ["CNN", "count_parameters", "build_model_from_config"]
+
 
 class CNN(nn.Module):
     """用于 MNIST 分类的卷积神经网络。
@@ -110,15 +121,6 @@ class CNN(nn.Module):
             "num_classes": self.num_classes,
             "dropout": self.dropout_p,
         }
-
-
-def count_parameters(model: nn.Module, trainable_only: bool = True) -> int:
-    """Calculate the parameter count
-
-    """
-    if trainable_only:
-        return sum(p.numel() for p in model.parameters() if p.requires_grad)
-    return sum(p.numel() for p in model.parameters())
 
 
 def build_model_from_config(config: dict) -> CNN:

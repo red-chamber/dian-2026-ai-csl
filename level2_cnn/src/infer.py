@@ -7,6 +7,7 @@ outputs：原图、模型输出、10 个类别各自的概率条形图
 from __future__ import annotations
 
 import argparse
+import sys
 from pathlib import Path
 
 # about plotting graphs
@@ -19,9 +20,14 @@ import torch.nn.functional as F
 from PIL import Image
 from torchvision import transforms
 
-from model import build_model_from_config, count_parameters
+# 脚本可能在任意目录下运行，先把仓库根补进 sys.path 才能 import common
+_ROOT = Path(__file__).resolve().parents[2]
+if str(_ROOT) not in sys.path:
+    sys.path.insert(0, str(_ROOT))
 
-PROJECT_ROOT = Path(__file__).resolve().parents[2]
+from common.checkpoint import load_checkpoint  # noqa: E402  (读权重 + 重建模型的公共实现)
+from common.utils import PROJECT_ROOT  # noqa: E402
+from model import build_model_from_config  # noqa: E402  (传给 load_checkpoint 用它重建)
 
 MNIST_MEAN, MNIST_STD = 0.1307, 0.3081
 
@@ -54,28 +60,6 @@ def parse_args() -> argparse.Namespace:
         help="output figure save path",
     )
     return parser.parse_args()
-
-
-def load_checkpoint(path: Path, device: str) -> tuple[torch.nn.Module, dict]:
-    """Load weights and reconstruct the model from checkpoint.
-
-    """
-    if not path.exists():
-        raise FileNotFoundError(
-            f"Cannot find the weights file: {path}\nPlease run the training script first."
-        )
-
-    ckpt = torch.load(path, map_location=device, weights_only=False)
-    model = build_model_from_config(ckpt["model_config"])
-    model.load_state_dict(ckpt["model_state"])
-    model.to(device)
-    model.eval()  # Switch to inference mode.(Disable Dropout)
-    print(f"Path to loaded weights: {path}")
-    print(f"Training epoch: {ckpt.get('epoch', 'unknown')}")
-    print(f"Validation accuracy during training: {ckpt.get('val_acc', float('nan')):.2%}")
-    print(f"Accuracy of test set: {ckpt.get('test_acc', float('nan')):.2%}")
-    print(f"Parameter count: {count_parameters(model):,}")
-    return model, ckpt
 
 
 def load_image_from_dataset(index: int, data_dir: Path) -> tuple[torch.Tensor, int, Image.Image]:
@@ -180,7 +164,7 @@ def visualize(
 def main() -> None:
     args = parse_args()
 
-    model, ckpt = load_checkpoint(Path(args.checkpoint), args.device)
+    model, ckpt = load_checkpoint(Path(args.checkpoint), args.device, build_model_from_config)
 
     # Try to fetch an image.
     if args.index is not None:

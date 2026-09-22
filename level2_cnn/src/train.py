@@ -1,21 +1,19 @@
 """训练 + 验证脚本（Level 2：CNN）
 
-流程完全复用 Level 1，唯一的变化是把模型从 MLP 换成 CNN。
-超参数的默认值与 Level 1 保持一致，这样两个模型的差异只来自结构本身。
+完全与 Level 1 同构，唯一的变化是把模型从 MLP 换成 CNN。
 
 验收标准：
 1. CNN 测试集准确率约 96%
-2. 从准确率 / 参数量 / 收敛速度 / 错误样本四个角度与 MLP 对比（见 compare.py）
-3. README 记录网络结构、超参数和实验结果
+2. README 记录网络结构、超参数和实验结果
 
 outputs:
     checkpoints/cnn_mnist_best.pt              the best weight in validation set
     reports/figures/cnn_mnist_curves.png       loss curve and accuracy curve
-    reports/metrics/cnn_mnist.json             本次实验的全部指标，用于填实验记录
+    reports/metrics/cnn_mnist.json             all parameters
 
 """
 
-from __future__ import annotations                       # 让注解延迟求值，兼容旧版本
+from __future__ import annotations                       
 
 import argparse                                          # 解析命令行参数
 import json                                              # 输出格式
@@ -319,22 +317,21 @@ def main() -> None:
     print("-" * 60)
     print(f"训练完成，耗时 {total_time:.1f}s，最好的 epoch 是第 {best_epoch} 轮（验证准确率 {best_val_acc:.2%}）")
 
-    # ---------- 加载最好权重，在测试集上评估 ----------
-    print("\n在测试集上评估最好权重...")
+    # 找到最好权重并评估
+    print("\nWe're evaluting the best weights on test set...")
     ckpt = torch.load(ckpt_path, map_location=args.device, weights_only=False)
     model.load_state_dict(ckpt["model_state"])
     test_loss, test_acc = evaluate(model, test_loader, criterion, args.device)
-    print(f"测试集准确率：{test_acc:.2%}   测试集损失：{test_loss:.4f}")
+    print(f"Test set accuracy: {test_acc:.2%}   Test set loss: {test_loss:.4f}")
 
-    # 把测试准确率补回 checkpoint
+    # Note down in checkpoint.
     ckpt["test_acc"] = test_acc
     torch.save(ckpt, ckpt_path)
 
-    # ---------- 画曲线 ----------
+    # plot
     fig_path = PROJECT_ROOT / "reports" / "figures" / f"{args.tag}_curves.png"
     plot_curves(history, fig_path, f"CNN {args.conv_channels} on MNIST")
 
-    # ---------- 保存本次实验的全部指标 ----------
     gpu_peak_mb = torch.cuda.max_memory_allocated() / 1024**2 if args.device == "cuda" else 0.0
     metrics = {
         "date": time.strftime("%Y-%m-%d %H:%M:%S"),
@@ -372,30 +369,7 @@ def main() -> None:
     metrics_path.parent.mkdir(parents=True, exist_ok=True)
     with open(metrics_path, "w", encoding="utf-8") as f:
         json.dump(metrics, f, ensure_ascii=False, indent=2)
-    print(f"实验指标已保存：{metrics_path}")
-
-    # ---------- 打印实验记录摘要 ----------
-    print("\n" + "=" * 60)
-    print("实验记录（可直接填进 docs/experiment-log.md）")
-    print("=" * 60)
-    print(f"实验编号与日期  : {args.tag} / {metrics['date']}")
-    print(f"Git commit      : {metrics['git_commit']}")
-    print(f"模型名称        : {metrics['model']}（{n_params:,} 参数）")
-    print(f"数据集与划分    : {metrics['dataset']}")
-    print(f"随机种子        : {args.seed}")
-    print(f"输入尺寸        : 1x28x28（不做展平，卷积自己处理二维结构）")
-    print(f"batch size      : {args.batch_size}")
-    print(f"优化器/学习率   : {args.optimizer} / {args.lr}")
-    print(f"损失函数        : CrossEntropyLoss")
-    print(f"训练轮数        : {args.epochs}（最优在第 {best_epoch} 轮）")
-    print(f"验证集准确率    : {best_val_acc:.2%}")
-    print(f"测试集准确率    : {test_acc:.2%}   {'✓ 达到 96% 的验收标准' if test_acc >= 0.96 else '✗ 未达到 96%'}")
-    print(f"训练时长        : {total_time:.1f}s")
-    print(f"GPU 显存峰值    : {gpu_peak_mb:.1f} MB")
-    print(f"结果图路径      : {metrics['figure']}")
-    print("=" * 60)
-    print("\n下一步：运行 compare.py 生成与 MLP 的四角度对比")
-
+    print(f"Essential parameters saved in {metrics_path}")
 
 if __name__ == "__main__":
     main()

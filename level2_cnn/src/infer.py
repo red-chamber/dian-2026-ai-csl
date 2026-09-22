@@ -1,12 +1,6 @@
 """单张图片推理脚本（Level 2：CNN）
 
-与 Level 1 的 infer.py 完全同构，只把默认权重换成 CNN 的 checkpoint。
-模型结构依然从 checkpoint 里的 model_config 重建，所以这里不需要知道
-用的是 MLP 还是 CNN —— build_model_from_config 会自动建出对应的模型。
-
-Dropout 关闭，所有神经元都用
-with torch.no_grad() 不建计算图，省显存
-
+与 Level 1 的 infer.py 完全同构，只把默认权重换成 CNN 的 checkpoint
 outputs：原图、模型输出、10 个类别各自的概率条形图
 """
 
@@ -36,7 +30,7 @@ plt.rcParams["axes.unicode_minus"] = False
 
 def parse_args() -> argparse.Namespace:
     """Define the command-line interface of the program.
-
+    The same as MLP.
     """
     parser = argparse.ArgumentParser(description="Run inference on a single image using a CNN.")
     parser.add_argument(
@@ -72,7 +66,6 @@ def load_checkpoint(path: Path, device: str) -> tuple[torch.nn.Module, dict]:
         )
 
     ckpt = torch.load(path, map_location=device, weights_only=False)
-    # Rebuild the model structure and load weights.
     model = build_model_from_config(ckpt["model_config"])
     model.load_state_dict(ckpt["model_state"])
     model.to(device)
@@ -97,7 +90,7 @@ def load_image_from_dataset(index: int, data_dir: Path) -> tuple[torch.Tensor, i
 
     pil_image, label = test_set[index]
 
-    # Convert to tensor and normalize.(WITHOUT other process)
+    # Convert to tensor and normalize.
     transform = transforms.Compose(
         [transforms.ToTensor(), transforms.Normalize((MNIST_MEAN,), (MNIST_STD,))]
     )

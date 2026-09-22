@@ -17,7 +17,7 @@
 | **3 经典网络** | 理解 AlexNet → VGG → ResNet 的演进，并掌握 U-Net 的编码器-解码器与跳跃连接 | `level3_classic_networks/` | 在已有代码基础上分别实现 AlexNet、ResNet |
 | **4 U-Net 擦除** | 用 U-Net 做手写内容擦除：保留印刷文字/表格/题目结构，擦掉手写部分 | `level4_unet/` | 输出 PSNR/SSIM 演化曲线；结果不出现全白/全黑；记录训练时长与费用（预算约 30 元） |
 
-> 当前进度：**Level 0、Level 1 已完成**；Level 2 代码已就绪、待训练；Level 3–4 待做。详见 [`docs/learning-log.md`](docs/learning-log.md)。
+> 当前进度：Level 0、Level 1 已完成；Level 2、Level 3 代码就绪、待训练；Level 4 待做。详见 [`docs/learning-log.md`](docs/learning-log.md)。
 
 ## 硬件与软件环境
 
@@ -60,20 +60,32 @@ dian-2026-ai-csl/
 ├── level0_environment/             # ✅ 已完成
 │   ├── README.md                   #   环境说明与验收记录
 │   └── check_env.py                #   环境验证脚本
-├── level1_mlp/                     # ✅ 已完成
+├── common/                         # 三个 Level 共用的训练基础设施
+│   ├── utils.py                    #   路径常量、随机种子、参数量统计、指标导出
+│   ├── data.py                     #   数据集注册表（MNIST / Fashion-MNIST）与 DataLoader
+│   ├── engine.py                   #   训练循环、评估、完整训练流程
+│   ├── checkpoint.py               #   权重的存与读（按 model_config 重建模型）
+│   └── plots.py                    #   通用绘图（收敛曲线）
+├── level1_mlp/                     # ✅ 已完成（MLP on MNIST，98.16%）
 │   ├── README.md                   #   网络结构、超参数与实验结果
 │   └── src/
-│       ├── model.py                #   MLP 定义、参数量统计、按配置重建模型
-│       ├── train.py                #   训练 / 验证循环、保存最优权重、导出指标
+│       ├── model.py                #   MLP 定义、按配置重建模型
+│       ├── train.py                #   命令行接口 + 训练（流程来自 common/）
 │       └── infer.py                #   单张图片推理
 ├── level2_cnn/                     # 🚧 代码就绪，待训练
 │   ├── README.md                   #   网络结构、超参数与对比方法
 │   └── src/
-│       ├── model.py                #   CNN 定义、参数量统计、按配置重建模型
-│       ├── train.py                #   训练 / 验证循环（复制自 Level 1，只换模型）
+│       ├── model.py                #   CNN 定义、按配置重建模型
+│       ├── train.py                #   命令行接口 + 训练（只比 Level 1 多两个结构参数）
 │       ├── infer.py                #   单张图片推理
 │       └── compare.py              #   MLP vs CNN 四角度对比
-├── level3_classic_networks/src/    # 待填充
+├── level3_classic_networks/        # 🚧 代码就绪，待训练
+│   ├── README.md                   #   两个网络的结构、参数量与演进主线
+│   └── src/
+│       ├── model.py                #   AlexNet、ResNet18（含残差消融开关）
+│       ├── train.py                #   命令行接口 + 训练
+│       ├── infer.py                #   单张图片推理
+│       └── compare.py              #   经典网络对比
 ├── level4_unet/
 │   ├── src/
 │   └── configs/
@@ -87,11 +99,15 @@ dian-2026-ai-csl/
     └── samples/                    # 推理结果对比图
 ```
 
-> **注意**：`data/raw`、`level3_classic_networks/src` 等目录目前是空的，**Git 不跟踪空目录**，克隆下来不会有这些空壳。
+> **注意**：`data/raw`、`level4_unet/src` 等目录目前是空的，**Git 不跟踪空目录**，克隆下来不会有这些空壳。
 > 往里放进第一个文件后，目录才会真正进入版本管理。
 >
 > 学习文档只保留 `docs/learning-log.md` 这一份（题目要求 2：在学习过程中维护一个学习文档），
 > 各 Level 的过程记录都追加到里面，不再每个 Level 各写一份。
+>
+> `common/` 是三个 Level 共用的训练基础设施：数据加载、训练循环、画图、指标导出都只写一遍。
+> 各 Level 的 `train.py` 只保留命令行接口、建模型和实验摘要，所以在 `python level1_mlp/src/train.py`
+> 这样直接运行时，脚本会先把仓库根目录补进 `sys.path` 才能 import 到 `common`。
 
 ## 环境安装与复现
 
@@ -185,9 +201,23 @@ python level1_mlp/src/train.py
 
 # 覆盖超参数
 python level1_mlp/src/train.py --epochs 15 --hidden-sizes 512 256 128 --dropout 0.3 --tag mlp_3layer
+
+# Level 2：CNN on MNIST（默认超参数与 Level 1 一致，保证对比只体现结构差异）
+python level2_cnn/src/train.py
+
+# 训练完后做 MLP vs CNN 的四角度对比（不重新训练，只读各自的 metrics json）
+python level2_cnn/src/compare.py
+
+# Level 3：经典网络 on Fashion-MNIST（两个模型要分别训练）
+python level3_classic_networks/src/train.py --model alexnet
+python level3_classic_networks/src/train.py --model resnet
+python level3_classic_networks/src/compare.py
+
+# Level 3 消融：去掉残差连接，参数量不变，看深了会怎样
+python level3_classic_networks/src/train.py --model resnet --no-residual --tag resnet_plain
 ```
 
-训练产出：
+训练产出（三个 Level 一致）：
 
 | 产物 | 路径 |
 |---|---|
@@ -199,15 +229,25 @@ python level1_mlp/src/train.py --epochs 15 --hidden-sizes 512 256 128 --dropout 
 
 ## 单张图片推理
 
+`--index` 与 `--image` 互斥，必须二选一。
+
 ```bash
-# 取测试集第 0 张（--index 与 --image 互斥，必须二选一）
+# Level 1：取测试集第 0 张
 python level1_mlp/src/infer.py --index 0
 
 # 自己的图片，png/jpg，白底黑字或黑底白字均可
 python level1_mlp/src/infer.py --image path/to/digit.png
+
+# Level 2：把默认权重换成 CNN 的
+python level2_cnn/src/infer.py --index 0
+
+# Level 3：--checkpoint 指到哪个模型就跑哪个（AlexNet / ResNet 自动识别）
+python level3_classic_networks/src/infer.py --index 0
+python level3_classic_networks/src/infer.py --checkpoint checkpoints/alexnet_fashionmnist_best.pt --index 0
 ```
 
-终端打印 10 个类别的概率，同时把「原图 + 概率条形图」存到 `reports/samples/mlp_infer_<标识>.png`。
+终端打印 10 个类别的概率，同时把「原图 + 概率条形图」存到 `reports/samples/`。
+Level 3 用的是 Fashion-MNIST，标签是 10 类衣物名而不是数字，图上显示的就是类别名。
 
 ## 实验结果
 
@@ -223,14 +263,35 @@ python level1_mlp/src/infer.py --image path/to/digit.png
 
 曲线见 `reports/figures/mlp_mnist_curves.png`，逐项记录见 [`docs/experiment-log.md`](docs/experiment-log.md)，网络结构与超参数见 [`level1_mlp/README.md`](level1_mlp/README.md)。
 
-### Level 2–4
+### Level 2：CNN on MNIST
+
+_待训练。训练后把 `reports/metrics/compare_mlp_cnn.json` 里的数字填进来，
+四角度对比表见 [`level2_cnn/README.md`](level2_cnn/README.md)。_
+
+| 项目 | MLP | CNN |
+|---|---|---|
+| 参数量 | 535,818 | 119,530 |
+| 测试集准确率 | 98.16% | _待填_ |
+| 最优 epoch | 第 7 轮 | _待填_ |
+
+### Level 3：AlexNet / ResNet on Fashion-MNIST
+
+_待训练。对比表见 [`level3_classic_networks/README.md`](level3_classic_networks/README.md)。_
+
+| 模型 | 参数量 | 测试准确率 |
+|---|---|---|
+| AlexNet | 5,338,314 | _待填_ |
+| ResNet-18 | 11,172,810 | _待填_ |
+
+### Level 4
 
 _待完成。_
 
 ## 已知问题
 
-- 空目录（`data/raw`、`level3_classic_networks/src` 等）不会被 Git 跟踪，克隆后需手动创建或靠首次提交带入。
+- 空目录（`data/raw`、`level4_unet/src` 等）不会被 Git 跟踪，克隆后需手动创建或靠首次提交带入。
 - `data/` 下除 `raw/`、`processed/` 之外的路径（如 `data/foo.csv`）**不在** `.gitignore` 忽略范围内，提交前需留意。
+- 各 Level 的 `src/` 下都有名为 `model.py` 的文件，`from model import ...` 之所以不冲突，是因为脚本每次都在独立进程里、按 `python levelN/src/xxx.py` 的方式运行（此时脚本所在目录会排在 `sys.path` 最前）。如果要在同一个进程里同时用到两个 Level 的模型，必须像 `level2_cnn/src/compare.py` 那样用 `importlib` 按文件路径加载，不能直接 `import model`。
 
 ## AI 使用说明
 

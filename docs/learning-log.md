@@ -196,3 +196,124 @@ MLP 拿到 `(N, 1, 28, 28)` 的第一件事是 `Flatten`，立刻压成 `(N, 784
 ### AI 使用记录
 
 CNN 的 `model.py` 由 AI 起草。我阅读时逐段追问了形状变化、`padding` 的作用和 Kaiming 初始化的推导。
+
+---
+
+## 2026-09-20 ｜ Level 2：train.py / infer.py / compare.py 的理解
+
+### 目标
+
+读懂剩下三个脚本
+
+### 学到的概念
+
+1. train.py 与 Level 1 只差三处
+
+1). `MLP` 改成 `from model import CNN`
+2). 命令行参数 `--conv-channels` / `--fc-hidden` 改成 `--hidden-sizes`
+3). CNN build model 时显式传 `in_channels=1, input_size=28`
+
+因为前面定义过了 `nn.Module` 的通用接口，这里全部调用这个，方便且风格统一。
+
+| 接口 | 用途 |
+| --- | --- |
+| `model(images)` | 前向计算 |
+| `model.parameters()` | 交给优化器 |
+| `model.state_dict()` | 存权重 |
+| `model.train()` / `model.eval()` | 切换模式 |
+
+2. `shuffle=False` 之必要性
+
+`collect_predictions` 返回的数组，下标必须和数据集下标严格一一对应，因为后面要用下标取原始图片，所以测试时不能用 `shuffle=True` 打乱顺序，训练时可以用这个
+
+3. 混淆矩阵
+
+`cm[i][j]` 意为真实是 i、却被预测成 j 的样本数，其中 i，j 都表示类别
+- **对角线**意为猜对了（`i == j`）；**非对角线**意为猜错了，把 ij 两类混淆了。
+- **错误数** = 全部元素和 − 对角线之和
+- 准确率的局限性：准确率是一个被压扁的标量，没有保留被混淆的具体的类别的信息
+
+10. 置信度的含义及作用
+
+置信度意为模型对结果的“自信程度”。错分样本中，置信度低说明它在犹豫，置信度高说明错得离谱
+
+### 遇到的问题
+
+1. 错误样本图显示成噪声
+
+**原因**：用了带归一化 transform 的数据集来显示图片，像素值有正有负
+**解决**：额外加载一份不带 transform 的 `raw_test` 专门用于显示
+
+### 实测结果
+
+| 项目 | 结果 |
+| --- | --- |
+| `model.py` | `(4,1,28,28)` → `(4,64,7,7)` → `(4,3136)` → `(4,10)` |
+| `compare.py` | `confusion_matrix`（错误数 = 总和 − 迹）、`top_confusions`、`epochs_to_reach` |
+| 三个脚本端到端 | `checkpoints/cnn_mnist_best.pt`、`reports/metrics/cnn_mnist.json` |
+
+### AI 使用记录
+
+`train.py`、`infer.py`、`compare.py` 都由 AI 起草。我阅读时重点追问了混淆矩阵的计算方式和错误样本的分组逻辑
+
+---
+
+## 2026-09-20 ｜ matplotlib 画图
+
+### 1. 每个绘图函数的流程
+
+```python
+out_path.parent.mkdir(parents=True, exist_ok=True)   # 1. 确保目录存在
+fig, axes = plt.subplots(1, 2, figsize=(12, 4.5))    # 2. 建立画布
+# Process                                            # 3. 画
+fig.suptitle(title, fontsize=13)                     # 4. 总标题
+fig.tight_layout()                                   # 5. 收紧布局，防止重叠
+fig.savefig(out_path, dpi=150)                       # 6. save，关闭并释放内存
+plt.close(fig)
+```
+
+### 2. `matplotlib.use("Agg")`
+
+```python
+matplotlib.use("Agg")          # Agg 意为只写文件，不弹窗，TkAgg 等是弹窗口
+```
+
+### 3. `savefig`
+
+```python
+# 保存时加这行是因为目录不存在时需要建立
+out_path.parent.mkdir(parents=True, exist_ok=True)
+```
+
+### 4. 用 `fig.savefig()` 而非 `plt.savefig()`
+
+`plt.savefig()` 存的是当前活跃的 figure，`fig.savefig()` 明确指定存哪张
+
+### 5. `plt.close(fig)`
+
+matplotlib 会一直持有 figure 对象。如果每个 epoch 存一张，不关闭会持续累积内存，超过 20 张时有 `RuntimeWarning: More than 20 figures have been opened`。所以 `plt.close(fig)` 用完一张就释放
+
+### 6. matplotlib 接收的必须是 numpy / Python 原生类型
+
+```python
+axes[1].bar(range(10), probs.numpy())        # 张量 -> numpy
+for i, p in enumerate(probs.tolist()):       # 张量 -> Python float 列表
+```
+
+### 7. 图上标注数据
+
+```python
+axes[1].text(i, p + 0.02, f"{p:.2f}", ha="center", fontsize=8)
+ax.text(j, i, str(cm[i, j]), ha="center", va="center", ...)
+```
+
+`ha` / `va` 是水平/垂直对齐，`ha="center"` 让文字以坐标点为中心，`p + 0.02` 加偏移量，避免文字与柱顶重合
+
+### 14. `figsize` 和 `dpi` 共同决定输出像素
+
+```python
+plt.subplots(1, 2, figsize=(12, 4.5))
+fig.savefig(out_path, dpi=150)   
+```
+
+`figsize` 单位是**英寸**，是「设想中的物理尺寸」，`dpi` 是每英寸多少像素，`12 × 150 = 1800`，两者相乘才是最终像素数。

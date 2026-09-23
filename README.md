@@ -17,7 +17,7 @@
 | **3 经典网络** | 理解 AlexNet → VGG → ResNet 的演进，并掌握 U-Net 的编码器-解码器与跳跃连接 | `level3_classic_networks/` | 在已有代码基础上分别实现 AlexNet、ResNet |
 | **4 U-Net 擦除** | 用 U-Net 做手写内容擦除：保留印刷文字/表格/题目结构，擦掉手写部分 | `level4_unet/` | 输出 PSNR/SSIM 演化曲线；结果不出现全白/全黑；记录训练时长与费用（预算约 30 元） |
 
-> 当前进度：Level 0、Level 1、Level 2 已完成；Level 3 已完成（含残差消融）；Level 4 待做。
+> 当前进度：Level 0、Level 1、Level 2、Level 3 已完成；Level 4 代码就绪、待训练。
 > 详见 [`docs/learning-log.md`](docs/learning-log.md)。
 
 ## 硬件与软件环境
@@ -87,9 +87,20 @@ dian-2026-ai-csl/
 │       ├── train.py                #   命令行接口 + 训练
 │       ├── infer.py                #   单张图片推理
 │       └── compare.py              #   经典网络对比
-├── level4_unet/
-│   ├── src/
-│   └── configs/
+├── level4_unet/                    # 🚧 代码就绪，待训练
+│   ├── README.md                   #   数据集、U-Net 结构、损失与指标、验收对照
+│   ├── configs/README.md           #   为什么用命令行参数而不是配置文件
+│   └── src/
+│       ├── data.py                 #   配对数据集、尺寸处理、按日期划分
+│       ├── model.py                #   U-Net
+│       ├── losses.py               #   L1 / MSE / L1+梯度
+│       ├── metrics.py              #   PSNR / SSIM 与退化检查
+│       ├── predict.py              #   尺寸补齐、分块推理、整集评估
+│       ├── viz.py                  #   训练曲线与四列对比图
+│       ├── engine.py               #   训练循环（断点续训、费用估算）
+│       ├── train.py                #   训练入口
+│       ├── infer.py                #   单张 / 批量推理
+│       └── evaluate.py             #   测试集评估与验收检查
 ├── data/
 │   ├── raw/                        # 原始数据（.gitignore 已忽略）
 │   ├── processed/                  # 处理后数据（忽略）
@@ -100,7 +111,7 @@ dian-2026-ai-csl/
     └── samples/                    # 推理结果对比图
 ```
 
-> **注意**：`data/raw`、`level4_unet/src` 等目录目前是空的，**Git 不跟踪空目录**，克隆下来不会有这些空壳。
+> **注意**：`data/raw` 等目录目前是空的，**Git 不跟踪空目录**，克隆下来不会有这些空壳。
 > 往里放进第一个文件后，目录才会真正进入版本管理。
 >
 > 学习文档只保留 `docs/learning-log.md` 这一份（题目要求 2：在学习过程中维护一个学习文档），
@@ -181,6 +192,24 @@ data/splits/       # 训练/验证/测试集划分文件
 `data/raw/` 与 `data/processed/` 已在 `.gitignore` 中忽略，**不要把数据集提交进 Git**。
 MNIST / Fashion-MNIST（Level 1–2）由 `torchvision.datasets` 自动下载，无需手动准备。
 
+Level 4 的数据集是配对数据，解压后是三个日期目录，每个下面各有 input/output 两个子目录，
+两边文件名一一对应（input 带手写、output 干净）：
+
+```text
+<data_root>/
+├── 20250211/dataset/{input,output}/     812 对
+├── 20250212/dataset/{input,output}/     900 对
+└── 20250213/dataset/{input,output}/     700 对
+```
+
+共 2412 对。**不需要复制进仓库**，训练时用 `--data-root` 指向它即可：
+
+```bash
+python level4_unet/src/train.py --data-root /path/to/dataset
+```
+
+细节（格式混杂、尺寸差异、按日期划分的理由）见 [`level4_unet/README.md`](level4_unet/README.md)。
+
 ## Level 目标
 
 - **Level 1｜MLP 完成 MNIST 手写数字识别**：把 MNIST 图片展平后输入 MLP，掌握 Tensor / Dataset / DataLoader / 自动求导、
@@ -216,6 +245,19 @@ python level3_classic_networks/src/compare.py
 
 # Level 3 消融：去掉残差连接，参数量不变，看深了会怎样
 python level3_classic_networks/src/train.py --model resnet --no-residual --tag resnet_plain
+
+# Level 4：U-Net 手写内容擦除（--data-root 指向数据集，无需复制进仓库）
+python level4_unet/src/train.py --data-root /path/to/dataset --epochs 60 --loss l1 --tag unet_l1
+
+# 云上被中断后续训（恢复模型、优化器与 epoch，并估算费用）
+python level4_unet/src/train.py --data-root /path/to/dataset --epochs 60 \
+    --tag unet_l1 --resume --gpu-hourly-cost 1.5
+
+# 测试集评估：输出 PSNR / SSIM、检查有没有全白/全黑，并给最差几张的对比图
+python level4_unet/src/evaluate.py --checkpoint checkpoints/unet_l1_best.pt --worst 4
+
+# 单张 / 批量推理，输出擦除后的干净图
+python level4_unet/src/infer.py --checkpoint checkpoints/unet_l1_best.pt --input photo.jpg
 ```
 
 训练产出（三个 Level 一致）：
@@ -299,9 +341,18 @@ CNN 净多救回的 90 张图。四角度完整对比见 [`level2_cnn/README.md`
 加上单次运行的差异可能落在噪声内，因此本项目**没有复现出残差连接的优势**。
 分析见 [`level3_classic_networks/README.md`](level3_classic_networks/README.md)。
 
-### Level 4
+### Level 4：U-Net 手写内容擦除 on 配对文档数据
 
-_待完成。_
+_待训练。数据集地址、U-Net 结构、损失与指标设计、验收标准逐条对照见
+[`level4_unet/README.md`](level4_unet/README.md)；训练后把数字填进那里的对比结果表。_
+
+| 指标 | 值 |
+|---|---|
+| 模型 / 参数量 | U-Net base_channels=64 / _待填_ |
+| 测试集 PSNR | _待填_ dB |
+| 测试集 SSIM | _待填_ |
+| 全白/全黑检查 | _待填_ |
+| 训练时长 / 预估费用 | _待填_ 小时 / _待填_ 元 |
 
 ## 已知问题
 

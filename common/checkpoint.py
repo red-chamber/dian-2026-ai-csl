@@ -31,11 +31,15 @@ def save_checkpoint(path: str | Path, *, model: nn.Module, model_config: dict, *
     return path
 
 
-def load_checkpoint(path: str | Path, device: str, build_fn) -> tuple[nn.Module, dict]:
-    """加载权重并重建模型。
+def load_weights(path: str | Path, device: str, build_fn) -> tuple[nn.Module, dict]:
+    """加载权重并重建模型，不做任何打印。
+
+    需要自定义输出内容的调用方（比如 Level 4 要报 PSNR / SSIM 而不是准确率）
+    用这个；只想直接看模型信息的用下面的 `load_checkpoint`。
 
     build_fn 是各 Level 自己的 `build_model_from_config`，由调用方传入 ——
-    这样本模块不需要知道模型长什么样，MLP / CNN / AlexNet / ResNet 共用同一段逻辑。
+    这样本模块不需要知道模型长什么样，MLP / CNN / AlexNet / ResNet / U-Net
+    共用同一段逻辑。
 
     权重文件里存的张量记着它原本所在的设备，所以不带 map_location 时，
     GPU 上存的权重在纯 CPU 机器上会加载失败。map_location 解决的是
@@ -55,6 +59,15 @@ def load_checkpoint(path: str | Path, device: str, build_fn) -> tuple[nn.Module,
     model.load_state_dict(ckpt["model_state"])
     model.to(device)
     model.eval()  # Switch to inference mode.(Disable Dropout)
+    return model, ckpt
+
+
+def load_checkpoint(path: str | Path, device: str, build_fn) -> tuple[nn.Module, dict]:
+    """加载权重并重建模型，并打印分类任务的模型信息（Level 1-3 用）。
+
+    具体的加载逻辑在 `load_weights` 里，这里只负责打印。
+    """
+    model, ckpt = load_weights(path, device, build_fn)
 
     print(f"Path to loaded weights: {path}")
     print(f"Training epoch: {ckpt.get('epoch', 'unknown')}")

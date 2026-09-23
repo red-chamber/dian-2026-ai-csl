@@ -1,24 +1,6 @@
 """训练 + 验证脚本（Level 3：AlexNet / ResNet on Fashion-MNIST）
 
-数据加载、训练循环、画曲线、指标导出全部复用 common/ 里的公共实现，
-本文件只负责三件事：命令行接口、按参数建模型、训练后打印实验摘要。
-
-验收标准：
-1. 在已有代码基础上分别实现 AlexNet、ResNet
-2. README 记录网络结构与超参数
-
-outputs:
-    checkpoints/<tag>_best.pt              验证集上最好的权重
-    reports/figures/<tag>_curves.png       Loss / Accuracy 曲线
-    reports/metrics/<tag>.json             本次实验的全部指标
-
-用法：
-    # 默认数据集是 Fashion-MNIST，比 MNIST 难，深层网络的优势才看得出来
-    python level3_classic_networks/src/train.py --model alexnet
-    python level3_classic_networks/src/train.py --model resnet
-
-    # 消融：去掉残差连接，看深了会怎样
-    python level3_classic_networks/src/train.py --model resnet --no-residual --tag resnet_plain
+本文件：命令行接口、按参数建模型
 """
 
 from __future__ import annotations
@@ -30,9 +12,6 @@ from pathlib import Path
 import torch
 import torch.nn as nn
 
-# 本文件是 `python level3_classic_networks/src/train.py` 这样直接运行的，
-# Python 只会把脚本所在目录放进 sys.path，仓库根不在里面，所以 common/ 找不到。
-# 这几行把仓库根补进去。
 _ROOT = Path(__file__).resolve().parents[2]
 if str(_ROOT) not in sys.path:
     sys.path.insert(0, str(_ROOT))
@@ -75,9 +54,9 @@ def parse_args() -> argparse.Namespace:
 
 
 def build_model(args: argparse.Namespace, spec: dict) -> nn.Module:
-    """按命令行参数建模型，规格（输入通道/尺寸/类别数）由数据集决定。"""
+    """按命令行参数建模型
+    """
     if args.model == "alexnet":
-        # 原版 AlexNet 在全连接层用 0.5 的 Dropout，这里作为默认值
         dropout = 0.5 if args.dropout is None else args.dropout
         return ARCHITECTURES["alexnet"](
             in_channels=spec["in_channels"],
@@ -86,7 +65,6 @@ def build_model(args: argparse.Namespace, spec: dict) -> nn.Module:
             dropout=dropout,
         )
 
-    # ResNet 靠 BatchNorm 做正则，原版不加 Dropout
     return ARCHITECTURES["resnet"](
         in_channels=spec["in_channels"],
         input_size=spec["input_size"],
@@ -96,7 +74,7 @@ def build_model(args: argparse.Namespace, spec: dict) -> nn.Module:
 
 
 def model_display_name(args: argparse.Namespace) -> str:
-    """写进 metrics 的模型名，能把消融变体区分开。"""
+    """写进 metrics 的模型名"""
     if args.model == "alexnet":
         return f"AlexNet (dropout={0.5 if args.dropout is None else args.dropout})"
     return "ResNet18" if not args.no_residual else "PlainNet18 (no residual)"
@@ -112,12 +90,11 @@ def main() -> None:
     print("=" * 60)
     print("Level 3：经典网络 AlexNet / ResNet")
     print("=" * 60)
-    print(f"设备     : {args.device}")
+    print(f"Device: {args.device}")
     if args.device == "cuda":
-        print(f"GPU      : {torch.cuda.get_device_name(0)}")
-    print(f"随机种子 : {args.seed}")
+        print(f"GPU: {torch.cuda.get_device_name(0)}")
+    print(f"Random seed: {args.seed}")
 
-    # ---------- 数据 ----------
     train_loader, val_loader, test_loader, spec = build_dataloaders(
         dataset=args.dataset,
         data_dir=args.data_dir,
@@ -128,16 +105,12 @@ def main() -> None:
         device=args.device,
         augment=args.augment,
     )
-    if args.augment:
-        print("数据增强 : 训练集随机裁剪 padding=2")
 
-    # ---------- 模型 ----------
     model = build_model(args, spec).to(args.device)
     n_params = count_parameters(model)
-    print(f"\n模型     : {model_name}")
-    print(f"参数量   : {n_params:,}")
+    print(f"\nModel name: {model_name}")
+    print(f"Parameter count: {n_params:,}")
 
-    # ---------- 损失函数与优化器 ----------
     criterion = nn.CrossEntropyLoss()
     optimizer = build_optimizer(
         model,
@@ -148,7 +121,6 @@ def main() -> None:
     )
     print(f"优化器   : {args.optimizer.upper()}，lr={args.lr}，weight_decay={args.weight_decay}")
 
-    # ---------- 训练 ----------
     ckpt_path = PROJECT_ROOT / "checkpoints" / f"{tag}_best.pt"
     result = run_training(
         model,
@@ -164,11 +136,11 @@ def main() -> None:
         args_dict=vars(args),
     )
 
-    # ---------- 画曲线 ----------
+    # Plotting
     fig_path = PROJECT_ROOT / "reports" / "figures" / f"{tag}_curves.png"
     plot_curves(result.history, fig_path, f"{model_name} on {spec['label']}")
 
-    # ---------- 保存本次实验的全部指标 ----------
+    # Save to metrics
     metrics = build_metrics(
         args,
         model_name=model_name,
@@ -191,30 +163,7 @@ def main() -> None:
         },
     )
     metrics_path = save_metrics(metrics, tag)
-    print(f"实验指标已保存：{metrics_path}")
-
-    # ---------- 打印实验记录摘要 ----------
-    print("\n" + "=" * 60)
-    print("实验记录（可直接填进 docs/experiment-log.md）")
-    print("=" * 60)
-    print(f"实验编号与日期  : {tag} / {metrics['date']}")
-    print(f"Git commit      : {metrics['git_commit']}")
-    print(f"模型名称        : {model_name}（{n_params:,} 参数）")
-    print(f"数据集与划分    : {metrics['dataset']}")
-    print(f"随机种子        : {args.seed}")
-    print(f"输入尺寸        : 1x28x28")
-    print(f"batch size      : {args.batch_size}")
-    print(f"优化器/学习率   : {args.optimizer} / {args.lr}")
-    print(f"损失函数        : CrossEntropyLoss")
-    print(f"训练轮数        : {args.epochs}（最优在第 {result.best_epoch} 轮）")
-    print(f"验证集准确率    : {result.best_val_acc:.2%}")
-    print(f"测试集准确率    : {result.test_acc:.2%}")
-    print(f"训练时长        : {result.train_time_sec:.1f}s")
-    print(f"GPU 显存峰值    : {result.gpu_peak_mb:.1f} MB")
-    print(f"结果图路径      : {metrics['figure']}")
-    print("=" * 60)
-    print("\n下一步：另一个模型也训练一遍，然后运行 compare.py 做对比")
-
+    print(f"Saved in {metrics_path}")
 
 if __name__ == "__main__":
     main()

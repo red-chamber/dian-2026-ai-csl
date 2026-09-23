@@ -1,14 +1,4 @@
 """经典网络对比脚本（Level 3）
-
-把训练过的若干模型放在一起比，回答这一 Level 的核心问题：
-「AlexNet 和 ResNet 的思路差在哪，各自换来什么」。
-
-本脚本**不重新训练**，只读各模型训练时导出的 reports/metrics/<tag>.json，
-所以跑一次只要几秒。
-
-    python level3_classic_networks/src/compare.py
-    python level3_classic_networks/src/compare.py --tags alexnet_fashionmnist resnet_fashionmnist resnet_plain
-
 对比的角度：
     参数量      用同一个 count_parameters 口径，横向可比
     测试准确率  各自在官方测试集 10000 张上评估一次得到（训练脚本里记录的）
@@ -16,8 +6,8 @@
     参数量构成  卷积部分 vs 分类头各占多少 —— 这一项最能说明两个网络的设计差异
 
 outputs:
-    reports/figures/level3_params_vs_acc.png     参数量 / 准确率对比条形图
-    reports/figures/level3_convergence.png       各模型的验证准确率曲线叠加
+    reports/figures/level3_params_vs_acc.png     参数量/准确率对比条形图
+    reports/figures/level3_convergence.png       各模型的验证准确率曲线
     reports/metrics/compare_level3.json          全部对比数字
 """
 
@@ -54,7 +44,7 @@ def parse_args() -> argparse.Namespace:
 
 
 def epochs_to_reach(history: dict, threshold: float) -> int | None:
-    """第一次达到某个验证准确率是在第几轮；达不到返回 None。"""
+    """第一次达到某个验证准确率是在第几轮；达不到返回 None"""
     for i, acc in enumerate(history["val_acc"], start=1):
         if acc >= threshold:
             return i
@@ -62,7 +52,7 @@ def epochs_to_reach(history: dict, threshold: float) -> int | None:
 
 
 def load_all(tags: list[str]) -> dict[str, dict]:
-    """逐个读 metrics；缺哪个就跳过并提示，不因为一个缺失就整体失败。"""
+    """逐个读 metrics；缺的直接跳过并提示"""
     loaded: dict[str, dict] = {}
     for tag in tags:
         try:
@@ -71,15 +61,14 @@ def load_all(tags: list[str]) -> dict[str, dict]:
             print(f"跳过 {tag}：还没训练过（找不到 reports/metrics/{tag}.json）")
     if not loaded:
         raise SystemExit(
-            "没有任何可对比的模型。请先训练：\n"
-            "  python level3_classic_networks/src/train.py --model alexnet\n"
-            "  python level3_classic_networks/src/train.py --model resnet"
+            "ERROR: Models not loaded!\n"
         )
     return loaded
 
 
 def plot_params_vs_accuracy(metrics: dict[str, dict], out_path: Path) -> None:
-    """左图参数量、右图测试准确率，两个模型的柱子一一对应。"""
+    """左图参数量，右图测试准确率
+    """
     names = [m["model"] for m in metrics.values()]
     params = [m["params"] for m in metrics.values()]
     accs = [m["test_acc"] for m in metrics.values()]
@@ -121,7 +110,6 @@ def main() -> None:
     print("Level 3：经典网络对比")
     print("=" * 70)
 
-    # ---------- 参数量与准确率 ----------
     print(f"\n{'模型':<26}{'参数量':>12}{'测试准确率':>12}{'最优轮次':>10}{'每轮耗时':>10}")
     print("-" * 70)
     for tag, m in metrics.items():
@@ -131,7 +119,6 @@ def main() -> None:
             f"{m['best_epoch']:>10}{sec_per_epoch:>9.1f}s"
         )
 
-    # ---------- 收敛速度 ----------
     print(f"\n验证准确率第一次达到 {args.target:.0%} 是在第几轮：")
     reach = {}
     for tag, m in metrics.items():
@@ -141,7 +128,6 @@ def main() -> None:
         print(f"    第 1 轮 {m['history']['val_acc'][0]:.2%} "
               f"-> 最优第 {m['best_epoch']} 轮 {m['best_val_acc']:.2%}")
 
-    # ---------- 画图 ----------
     fig_dir = PROJECT_ROOT / "reports" / "figures"
 
     plot_params_vs_accuracy(metrics, fig_dir / "level3_params_vs_acc.png")
@@ -156,7 +142,6 @@ def main() -> None:
         target_label=f"{args.target:.0%} target",
     )
 
-    # ---------- 存 JSON ----------
     result = {
         tag: {
             "model": m["model"],
@@ -175,7 +160,7 @@ def main() -> None:
     out_path.parent.mkdir(parents=True, exist_ok=True)
     with open(out_path, "w", encoding="utf-8") as f:
         json.dump(result, f, ensure_ascii=False, indent=2)
-    print(f"\n对比结果已保存：{out_path}")
+    print(f"\nComparison results saved in {out_path}")
 
 
 if __name__ == "__main__":

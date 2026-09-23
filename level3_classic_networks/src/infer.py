@@ -1,12 +1,5 @@
 """单张图片推理脚本（Level 3：AlexNet / ResNet）
 
-与 Level 1/2 的 infer.py 同构，两处不同：
-
-1. checkpoint 里的 model_config 带 "arch" 字段，`build_model_from_config`
-   会据此决定建 AlexNet 还是 ResNet，所以 --checkpoint 指到哪个权重就跑哪个模型。
-2. 默认数据集是 Fashion-MNIST，标签是 10 类衣物，画图和终端输出都显示类别名。
-
-Dropout 关闭，所有神经元都用；with torch.no_grad() 不建计算图，省显存。
 """
 
 from __future__ import annotations
@@ -47,7 +40,7 @@ def parse_args() -> argparse.Namespace:
         help="Model weights path",
     )
     parser.add_argument("--dataset", type=str, default="fashion-mnist",
-                        choices=["mnist", "fashion-mnist"], help="标签含义随数据集不同")
+                        choices=["mnist", "fashion-mnist"], help="")
 
     # Select an image in test set or a custom image.
     source = parser.add_mutually_exclusive_group(required=True)
@@ -70,7 +63,6 @@ def load_image_from_dataset(index: int, spec: dict, data_dir: Path) -> tuple[tor
 
     pil_image, label = test_set[index]
 
-    # 必须和训练时完全一致：只做 ToTensor + Normalize，不加随机增强
     transform = transforms.Compose(
         [transforms.ToTensor(), transforms.Normalize((spec["mean"],), (spec["std"],))]
     )
@@ -131,12 +123,12 @@ def visualize(
     axes[0].set_title("Input (28x28)", fontsize=12)
     axes[0].axis("off")
 
-    # The right figure shows the probabilities. 类别名有长有短，横向条形图更清楚
+    # The right figure shows the probabilities. 
     colors = ["#d62728" if i == pred else "#aec7e8" for i in range(len(classes))]
     axes[1].barh(range(len(classes)), probs.numpy(), color=colors)
     axes[1].set_yticks(range(len(classes)))
     axes[1].set_yticklabels(classes, fontsize=8)
-    axes[1].invert_yaxis()  # 第 0 类画在最上面
+    axes[1].invert_yaxis() 
     axes[1].set_xlim(0, 1.05)
     axes[1].set_xlabel("Probability", fontsize=10)
 

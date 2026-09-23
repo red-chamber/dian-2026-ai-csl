@@ -1,0 +1,86 @@
+{
+  "mlp": {
+    "name": "MLP [512, 256]",
+    "params": 535818,
+    "test_acc": 0.9816,
+    "test_errors": 184,
+    "best_epoch": 7,
+    "best_val_acc": 0.9798333333333333,
+    "sec_per_epoch": 3.76,
+    "epoch_to_96": 2,
+    "top_confusions": [
+      [
+        7,
+        9,
+        12
+      ],
+      [
+        2,
+        7,
+        8
+      ],
+      [
+        4,
+        9,
+        8
+      ],
+      [
+        5,
+        3,
+        7
+      ],
+      [
+        9,
+        4,
+        7
+      ]
+    ]
+  },
+  "cnn": {
+    "name": "CNN [32, 64]",
+    "params": 119530,
+    "test_acc": 0.9906,
+    "test_errors": 94,
+    "best_epoch": 7,
+    "best_val_acc": 0.9885,
+    "sec_per_epoch": 3.56,
+    "epoch_to_96": 1,
+    "top_confusions": [
+      [
+        9,
+        4,
+        8
+      ],
+      [
+        4,
+        9,
+        7
+      ],
+      [
+        9,
+        0,
+        7
+      ],
+      [
+        6,
+        0,
+        6
+      ],
+      [
+        7,
+        2,
+        5
+      ]
+    ]
+  },
+  "error_groups": {
+    "both_wrong": 48,
+    "only_mlp_wrong": 136,
+    "only_cnn_wrong": 46
+  },
+  "figures": {
+    "curves": "reports/figures/mlp_vs_cnn_curves.png",
+    "confusion": "reports/figures/mlp_vs_cnn_confusion.png",
+    "errors": "reports/samples/mlp_vs_cnn_errors.png"
+  }
+}

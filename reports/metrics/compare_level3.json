@@ -1,0 +1,35 @@
+{
+  "alexnet_fashionmnist": {
+    "model": "AlexNet (dropout=0.5)",
+    "params": 5338314,
+    "test_acc": 0.9142,
+    "test_loss": 0.2706068251848221,
+    "best_epoch": 14,
+    "best_val_acc": 0.9198333333333333,
+    "train_time_sec": 143.7,
+    "sec_per_epoch": 7.18,
+    "epoch_to_target": null
+  },
+  "resnet_fashionmnist": {
+    "model": "ResNet18",
+    "params": 11172810,
+    "test_acc": 0.9263,
+    "test_loss": 0.376652791595459,
+    "best_epoch": 19,
+    "best_val_acc": 0.933,
+    "train_time_sec": 444.42,
+    "sec_per_epoch": 22.22,
+    "epoch_to_target": 4
+  },
+  "resnet_plain": {
+    "model": "PlainNet18 (no residual)",
+    "params": 11172810,
+    "test_acc": 0.9276,
+    "test_loss": 0.22729480934143068,
+    "best_epoch": 9,
+    "best_val_acc": 0.9295,
+    "train_time_sec": 439.5,
+    "sec_per_epoch": 21.98,
+    "epoch_to_target": 6
+  }
+}

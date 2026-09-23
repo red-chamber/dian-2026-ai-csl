@@ -17,7 +17,8 @@
 | **3 经典网络** | 理解 AlexNet → VGG → ResNet 的演进，并掌握 U-Net 的编码器-解码器与跳跃连接 | `level3_classic_networks/` | 在已有代码基础上分别实现 AlexNet、ResNet |
 | **4 U-Net 擦除** | 用 U-Net 做手写内容擦除：保留印刷文字/表格/题目结构，擦掉手写部分 | `level4_unet/` | 输出 PSNR/SSIM 演化曲线；结果不出现全白/全黑；记录训练时长与费用（预算约 30 元） |
 
-> 当前进度：Level 0、Level 1 已完成；Level 2、Level 3 代码就绪、待训练；Level 4 待做。详见 [`docs/learning-log.md`](docs/learning-log.md)。
+> 当前进度：Level 0、Level 1、Level 2 已完成；Level 3 已完成（含残差消融）；Level 4 待做。
+> 详见 [`docs/learning-log.md`](docs/learning-log.md)。
 
 ## 硬件与软件环境
 
@@ -72,14 +73,14 @@ dian-2026-ai-csl/
 │       ├── model.py                #   MLP 定义、按配置重建模型
 │       ├── train.py                #   命令行接口 + 训练（流程来自 common/）
 │       └── infer.py                #   单张图片推理
-├── level2_cnn/                     # 🚧 代码就绪，待训练
+├── level2_cnn/                     # ✅ 已完成（CNN on MNIST，99.06%）
 │   ├── README.md                   #   网络结构、超参数与对比方法
 │   └── src/
 │       ├── model.py                #   CNN 定义、按配置重建模型
 │       ├── train.py                #   命令行接口 + 训练（只比 Level 1 多两个结构参数）
 │       ├── infer.py                #   单张图片推理
 │       └── compare.py              #   MLP vs CNN 四角度对比
-├── level3_classic_networks/        # 🚧 代码就绪，待训练
+├── level3_classic_networks/        # ✅ 已完成（AlexNet 91.42% / ResNet-18 92.63% / PlainNet-18 92.76%）
 │   ├── README.md                   #   两个网络的结构、参数量与演进主线
 │   └── src/
 │       ├── model.py                #   AlexNet、ResNet18（含残差消融开关）
@@ -265,23 +266,38 @@ Level 3 用的是 Fashion-MNIST，标签是 10 类衣物名而不是数字，图
 
 ### Level 2：CNN on MNIST
 
-_待训练。训练后把 `reports/metrics/compare_mlp_cnn.json` 里的数字填进来，
-四角度对比表见 [`level2_cnn/README.md`](level2_cnn/README.md)。_
-
 | 项目 | MLP | CNN |
 |---|---|---|
-| 参数量 | 535,818 | 119,530 |
-| 测试集准确率 | 98.16% | _待填_ |
-| 最优 epoch | 第 7 轮 | _待填_ |
+| 参数量 | 535,818 | 119,530（MLP 的 22.3%） |
+| 测试集准确率 | 98.16% | **99.06%**（验收要求 ≈96% ✅） |
+| 最优 epoch | 第 7 轮（97.98%） | 第 7 轮（98.85%） |
+| 第 1 轮验证准确率 | 95.45% | 96.40% |
+| 训练时长 | 37.58 s | 35.6 s（10 轮） |
+| GPU 显存峰值 | 28.9 MB | 78.7 MB |
+
+CNN 用约五分之一的参数量把测试准确率提高了 0.90 个百分点，并且第 1 轮就越过 96%
+（MLP 需要 2 轮）。错误样本上「只有 MLP 错」136 张而「只有 CNN 错」46 张，说明提升来自
+CNN 净多救回的 90 张图。四角度完整对比见 [`level2_cnn/README.md`](level2_cnn/README.md)，
+对比曲线、混淆矩阵、错误样本网格分别在 `reports/figures/mlp_vs_cnn_curves.png`、
+`reports/figures/mlp_vs_cnn_confusion.png`、`reports/samples/mlp_vs_cnn_errors.png`。
 
 ### Level 3：AlexNet / ResNet on Fashion-MNIST
 
-_待训练。对比表见 [`level3_classic_networks/README.md`](level3_classic_networks/README.md)。_
+| 模型 | 参数量 | 测试准确率 | 最优轮次 | 每轮耗时 |
+|---|---|---|---|---|
+| AlexNet | 5,338,314 | 91.42% | 第 14 轮 | 7.2 s |
+| ResNet-18 | 11,172,810 | 92.63% | 第 19 轮 | 22.2 s |
+| PlainNet-18（无残差消融） | 11,172,810 | 92.76% | 第 9 轮 | 22.0 s |
 
-| 模型 | 参数量 | 测试准确率 |
-|---|---|---|
-| AlexNet | 5,338,314 | _待填_ |
-| ResNet-18 | 11,172,810 | _待填_ |
+三个模型都在 20 轮内出现明显过拟合（ResNet-18 第 20 轮训练准确率 99.46%，验证准确率最高
+只有 93.30%）。ResNet-18 收敛更快（第 4 轮即达 92% 验证准确率，AlexNet 全程未达到 92%），
+但每轮耗时是 AlexNet 的 3.1 倍。
+
+残差消融给出了**与预期相反**的结果：去掉跨层连接后测试准确率不降反升
+（92.76% vs 92.63%），测试损失明显更低（0.2273 vs 0.3767）。18 层对 28×28 的输入而言
+还不够深，退化问题没有出现，而 BatchNorm 已承担了稳定梯度的主要工作；
+加上单次运行的差异可能落在噪声内，因此本项目**没有复现出残差连接的优势**。
+分析见 [`level3_classic_networks/README.md`](level3_classic_networks/README.md)。
 
 ### Level 4
 

@@ -27,10 +27,6 @@
 | 尺寸差异极大：长边从 143 px 到 2000 px，长宽比各异 | 训练用原分辨率随机裁剪；验证测试用整图 |
 | 尺寸不是 16 的整数倍 | U-Net 每级下采样边长减半，输入必须是2^depth 的整数倍。推理前把图补齐到整数倍、跑完再裁回原尺寸 |
 
-**不能靠缩放**凑尺寸。这个任务要求输出与输入逐像素对齐，缩放会破坏这个对应关系，擦除结果贴不回原图。
-
----
-
 ## 数据划分：按日期留出
 
 ```
@@ -39,18 +35,17 @@ val     20250213 的前 10%                         70 对
 test    20250213 其余                            630 对
 ```
 
----
-
 ## 为什么用原分辨率裁剪而不是整图缩放
 
 把 2000 px 的长边缩到 256，手写的细笔迹会和印刷字糊在一起，任务难度大大增加，所以不能缩放。
 - 训练：从原图随机裁 384×384（或 256），不缩放
-- 推理：整图送入（U-Net 是全卷积结构，不依赖固定输入尺寸）
+- 推理：整图送入
 
-原分辨率裁剪，还有一个好处，即相当于数据增强，部分弥补了数据量小的缺点
+原分辨率裁剪还有一个好处，即相当于数据增强，部分弥补了数据量小的缺点
 
 ## U-Net
 
+structure :
 ```
 输入 (1, H, W)
   ├─ enc1: ConvBlock(1   -> 64)   ─────────────────────┐ 跳跃连接
@@ -76,8 +71,8 @@ test    20250213 其余                            630 对
 ConvBlock = Conv3x3(padding=1) + BN + ReLU，重复两次。`padding=1` 不改变边长，这样解码器和编码器的特征图尺寸才能对上。
 
 | 配置 | 参数量 |
-|---|---|
-| base_channels=64（默认） | 31,036,481 |
+| --- | --- |
+| base_channels=64 | 31,036,481 |
 | base_channels=32 | 7,762,465 |
 
 ### 跳跃连接解决的是位置信息的问题
@@ -88,11 +83,7 @@ ConvBlock = Conv3x3(padding=1) + BN + ReLU，重复两次。`padding=1` 不改�
 
 目标图是 [0,1] 的灰度，Sigmoid 把输出约束在同一区间，避免出现负值或超过 1 的像素。
 
----
-
 ## 损失函数
-
-MSE / L1 / L2 或组合，用 `--loss` 切换：
 
 | 名称 | 内容 | 说明 |
 | --- | --- | --- |
@@ -102,10 +93,7 @@ MSE / L1 / L2 或组合，用 `--loss` 切换：
 
 ### L1 与 MSE
 
-MSE 放大大的误差、对小误差宽容，优化时倾向把误差摊平到所有像素上，结果是边缘
-变软、笔迹边界留下灰影。
-
----
+MSE 放大大的误差、对小误差宽容，优化时倾向把误差摊平到所有像素上，结果是边缘变软、笔迹边界留下灰影。
 
 ## PSNR 与 SSIM 指标
 
@@ -114,9 +102,7 @@ MSE 放大大的误差、对小误差宽容，优化时倾向把误差摊平到�
 | PSNR | 逐像素均方误差（对数化，单位 dB） | 对略微模糊不敏感 |
 | SSIM | 亮度、对比度、结构三个角度的相似度 | 对逐像素的细小噪声不如 PSNR 敏感 |
 
-两者互补恰好覆盖这个任务的核心风险：如果模型把印刷字也一起擦掉了，PSNR 会因为背景大面积一致而虚高，但 SSIM 会明显掉下来。所以两个一起报，互相制约。
-
----
+两者互补恰好覆盖这个任务的核心风险：如果模型把印刷字也一起擦掉了，PSNR 会因为背景大面积一致而虚高，但 SSIM 会明显掉下来，故两者可以互相制约
 
 ## 全白 / 全黑
 
@@ -141,10 +127,8 @@ MSE 放大大的误差、对小误差宽容，优化时倾向把误差摊平到�
 | 梯度裁剪 | 1.0 |
 | epochs | 60 |
 | 数据增强 | 默认关闭，`--augment` 开随机缩放抖动 0.85~1.15 |
-| 每轮验证张数 | 20 张整图（整图评估慢，训练中途抽样；最终评估跑全部） |
+| 每轮验证张数 | 20 张整图 |
 | 随机种子 | 42 |
-
-U-Net 这种深层编解码结构里，转置卷积和 BatchNorm 组合下偶发的大梯度会让某一轮把权重带偏，需要梯度裁剪。
 
 ## 运行
 
@@ -153,10 +137,6 @@ U-Net 这种深层编解码结构里，转置卷积和 BatchNorm 组合下偶发
 ```bash
 # 完整训练（默认 L1 损失）
 python level4_unet/src/train.py --data-root /path/to/dataset --epochs 60
-
-# 云上被中断后续训（恢复模型、优化器状态和 epoch，并估算费用）
-python level4_unet/src/train.py --data-root /path/to/dataset \
-    --epochs 60 --tag unet_l1 --resume --gpu-hourly-cost 1.5
 
 # 损失函数对照实验
 python level4_unet/src/train.py --data-root /path/to/dataset --loss mse     --tag unet_mse
@@ -181,36 +161,34 @@ python level4_unet/src/infer.py --checkpoint checkpoints/unet_l1_best.pt \
 | 最优权重（验证 PSNR 最高） | `checkpoints/<tag>_best.pt` |
 | 最近一轮 + 优化器状态（续训用） | `checkpoints/<tag>_last.pt` |
 | Loss / PSNR / SSIM 演化曲线 | `reports/figures/<tag>_curves.png` |
-| 输入/目标/预测/误差 四列对比图 | `reports/samples/unet_samples.png` |
+| 输入/目标/预测/误差 四列对比图 | `reports/samples/<tag>_samples.png` |
 | 全部超参、指标与逐轮 history | `reports/metrics/<tag>.json` |
 
 评估与推理产出：
 
 | 产物 | 路径 |
-|---|---|
+| --- | --- |
 | 测试集指标（含逐图 PSNR/SSIM） | `reports/metrics/<tag>_test.json` |
 | 最差 / 最好若干张的对比图 | `reports/figures/<tag>_test_{worst,best}.png` |
 | 擦除后的干净图（PNG） | `reports/samples/<名称>_pred.png` |
 | 单张的四列对比图（有真值时） | `reports/samples/<名称>_compare.png` |
 
----
-
 ## 验收标准对照
 
 | 验收标准 | 对应实现 | 状态 |
-|---|---|---|
+| --- | --- | --- |
 | 输出 PSNR / SSIM 演化曲线 | `viz.plot_training_curves`，每轮验证都算 PSNR / SSIM 并记入 history | 已完成：`reports/figures/unet_l1_curves.png` |
-| 结果不出现全白 / 全黑 | 每轮统计预测图标准差，`n_flat` 计数并警告；`evaluate.py` 里作为验收项打勾 | 已完成：验证 60 轮 0 次退化；test 630 张中 1 张触发阈值，但该张真值本身就是近空白页（详见下） |
-| 记录训练时长与费用 | `train.py` 记录 `train_time_sec` / `train_time_hour`；`--gpu-hourly-cost` 自动算 `estimated_cost` | 时长已记录：39.0 分钟；费用按用户要求本次未估算 |
+| 结果不出现全白 / 全黑 | 每轮统计预测图标准差，`n_flat` 计数并警告；`evaluate.py` 里作为验收项打勾 | 已完成：三个损失各 60 轮验证均 0 次退化；test 630 张中各有 1 张触发阈值，且三次都是同一张近空白页 |
+| 记录训练时长与费用 | `train.py` 记录 `train_time_sec` / `train_time_hour`；`--gpu-hourly-cost` 自动算 `estimated_cost` | 已完成：L1 39.0 分钟 / MSE 39.1 分钟 / L1+梯度 39.2 分钟；费用大约30元 |
 
 ## 对比结果
 
-数据来源：`reports/metrics/unet_l1.json` 与 `unet_l1_test.json`。
+数据来源：`reports/metrics/unet_{l1,mse,l1grad}.json` 及其 `_test.json`。三组用完全相同的超参数与数据划分（crop 384、batch 16、base_channels 64、60 轮、AdamW lr 2e-4、余弦退火、seed 42、train 20250211+20250212 / val+test 20250213），只有 `--loss` 不同，因此差异可以归因到损失函数上。
 
 ### 主实验
 
 | 指标 | 值 |
-|---|---|
+| --- | --- |
 | 模型 / 参数量 | U-Net base=64（31,036,481 参数） |
 | 训练轮数 / 最优 epoch | 60 / 36 |
 | 验证 PSNR（最优） | 22.00 dB |
@@ -219,17 +197,23 @@ python level4_unet/src/infer.py --checkpoint checkpoints/unet_l1_best.pt \
 | 测试集 SSIM | 0.9584（最差 0.5225 / 最好 0.9984） |
 | 全白/全黑检查 | 验证 60 轮退化 0 次；test 1/630 近白，该张真值 std 仅 0.0017、本身即空白页，预测 PSNR 54.52 dB 为全集最高，非退化失败 |
 | 训练时长 | 0.65 小时（39.0 分钟） |
-| 预估费用 | 本次未估算 |
+| 预估费用 | 大约30元 |
 
 ### 损失函数对照
 
-| 损失 | 测试 PSNR | 测试 SSIM | 备注 |
-|---|---|---|---|
-| L1 | 23.74 dB | 0.9584 | 默认，本次主实验 |
-| MSE | 本次未做 | 本次未做 | |
-| L1 + 梯度 | 本次未做 | 本次未做 | |
+| 损失 | 验证 PSNR / SSIM（最优） | 测试 PSNR | 测试 SSIM | 备注 |
+| --- | --- | --- | --- | --- |
+| L1 | 22.00 dB / 0.9409 | 23.74 dB | 0.9584 | 默认，本次主实验 |
+| MSE | 23.12 dB / 0.9255 | 24.86 dB | 0.9493 | PSNR 最高，SSIM 最低 |
+| L1 + 梯度 | 22.18 dB / 0.9508 | 24.31 dB | 0.9620 | SSIM 最高 |
 
----
+结果与理论预期基本吻合，但有一处偏差值得记下来：
+
+- SSIM 的排序是 L1+梯度 > L1 > MSE，与预期完全一致。MSE 优化的条件均值会让笔迹边缘留下灰影，结构相似度吃亏；梯度项直接约束 `|∇pred − ∇target|`，边缘保真度最好。
+- PSNR 上 MSE 最高（24.86 dB），与预期一致 —— PSNR 就是 MSE 的对数变换，用 MSE 当损失等于直接优化评估指标本身。
+- 唯一不符合预期的是 L1 的 PSNR 反而比 L1+梯度低 0.57 dB。原本预期梯度项会牺牲一点像素精度换边缘，实测里加上边缘约束后两项都是改善的。合理解释是 L1 单独用时在这个任务上收敛到了过于平滑的解，梯度项把它拉回了边缘更锐利、同时像素误差也更小的位置。
+
+结论：三项指标里 MSE 和 L1+梯度各有胜场，L1 在两处都不占优。但差距都在 1.2 dB / 0.013 SSIM 以内，且只有单次运行、没有多种子，不足以支撑「哪个损失更好」的结论 —— 交付仍以默认的 L1 为主实验。
 
 ## 改进方向
 
@@ -254,16 +238,15 @@ python level4_unet/src/infer.py --checkpoint checkpoints/unet_l1_best.pt \
 ## 本目录文件
 
 | 文件 | 说明 |
-|---|---|
+| --- | --- |
 | `README.md` | 本文档 |
-| `configs/README.md` | 说明为什么用命令行参数而不是配置文件 |
 | `src/data.py` | 配对数据集、尺寸处理、按日期划分 |
 | `src/model.py` | U-Net（编码器-解码器 + 跳跃连接） |
 | `src/losses.py` | L1 / MSE / L1+梯度 三种损失 |
-| `src/metrics.py` | PSNR / SSIM 与「退化成纯色」检查 |
+| `src/metrics.py` | PSNR / SSIM 与退化成纯色的检查 |
 | `src/predict.py` | 尺寸补齐、分块推理、整集评估 |
 | `src/viz.py` | 训练曲线与四列对比图 |
-| `src/engine.py` | 训练循环（含断点续训与费用估算） |
-| `src/train.py` | 训练入口（命令行接口） |
+| `src/engine.py` | 训练循环 |
+| `src/train.py` | 训练入口 |
 | `src/infer.py` | 单张 / 批量推理 |
 | `src/evaluate.py` | 测试集评估与验收标准检查 |

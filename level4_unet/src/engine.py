@@ -246,7 +246,7 @@ def run_training(
         _, _, sample_images = evaluate_dataset(
             model, loaders["val"], device=device, tile=tile, max_images=samples, keep_samples=samples
         )
-        sample_path = Path(sample_dir) / "unet_samples.png"
+        sample_path = Path(sample_dir) / f"{args_dict.get('tag', 'unet')}_samples.png"
         plot_fn(sample_images, sample_path, "U-Net: handwriting removal", max_rows=min(4, samples))
 
     return TrainResult(

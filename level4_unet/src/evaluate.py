@@ -36,7 +36,7 @@ if str(_ROOT) not in sys.path:
 
 from common.checkpoint import load_weights  # noqa: E402
 from common.utils import PROJECT_ROOT, count_parameters, save_metrics  # noqa: E402
-from data import PairedDocDataset, build_loaders, split_pairs  # noqa: E402
+from data import HOLDOUT_DATE, TRAIN_DATES, PairedDocDataset, build_loaders, split_pairs  # noqa: E402
 from model import build_model_from_config  # noqa: E402
 from predict import evaluate_dataset  # noqa: E402
 from viz import plot_comparison  # noqa: E402
@@ -49,6 +49,10 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--split", type=str, default="test", choices=["test", "val"],
                    help="评估哪个划分；默认 test")
     p.add_argument("--val-ratio", type=float, default=0.1, help="与训练时保持一致")
+    p.add_argument("--train-dates", type=str, nargs="+", default=list(TRAIN_DATES),
+                   help="与训练时保持一致（只用于定位数据目录，评估不碰训练集）")
+    p.add_argument("--holdout-date", type=str, default=HOLDOUT_DATE,
+                   help="与训练时保持一致，评估就在这个日期上跑")
     p.add_argument("--max-images", type=int, default=0,
                    help="只评估前 N 张，0 表示全部（测试集整图评估较慢）")
     p.add_argument("--tile", type=int, default=0, help="分块推理块边长，0 表示整图直推")
@@ -83,7 +87,12 @@ def main() -> None:
         print(f"分块推理  : 块边长 {args.tile}")
 
     # ---------- 数据 ----------
-    splits = split_pairs(args.data_root, val_ratio=args.val_ratio)
+    splits = split_pairs(
+        args.data_root,
+        val_ratio=args.val_ratio,
+        train_dates=tuple(args.train_dates),
+        holdout_date=args.holdout_date,
+    )
     loaders = build_loaders(
         splits,
         crop_size=0,  # 评估用整图，不裁剪

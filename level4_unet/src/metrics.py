@@ -29,9 +29,15 @@ FLAT_STD_THRESHOLD = 5e-3
 
 
 def _to_numpy(image: torch.Tensor) -> np.ndarray:
-    """(1, H, W) 或 (H, W) 的 float 张量 -> (H, W) 的 numpy，取值 [0,1]。"""
+    """把张量压成 (H, W) 的 numpy 数组，取值 [0,1]。
+
+    调用方传进来的通常是 (1, 1, H, W)（batch=1、单通道），也可能是 (1, H, W) 或 (H, W)。
+    skimage 的 SSIM 只接受二维数组，所以要把前面的长度 1 维度全部挤掉 ——
+    只 squeeze 一次的话，四维张量会原样传进去，SSIM 会把它当成很小的图而报
+    「win_size exceeds image extent」。
+    """
     array = image.detach().cpu().float()
-    if array.dim() == 3:
+    while array.dim() > 2:
         array = array.squeeze(0)
     return array.numpy()
 

@@ -4,6 +4,52 @@
 
 ---
 
+## 实验 04 ｜ 2026-09-24 ｜ Level 4：U-Net 手写内容擦除
+
+在远端 AutoDL 服务器（RTX 4090D）上训练，本机不参与训练。数据按日期留出。
+
+| 字段 | 值 |
+|---|---|
+| 实验编号与日期 | 04 / 2026-09-24 00:12 |
+| Git commit ID | `15113f0` |
+| 模型名称 | U-Net base_channels=64 depth=4（转置卷积上采样） |
+| 数据集和划分方式 | 配对文档图 2412 对；train = 20250211+20250212（1712 对），val = 20250213 前 10%（70 对），test = 其余（630 对），按日期留出 |
+| 随机种子 | 42 |
+| 输入尺寸 | 原分辨率随机裁剪 384×384（训练），整图（验证/测试） |
+| batch size | 16（drop_last） |
+| optimizer / learning rate / epoch | AdamW / 2e-4（weight_decay 1e-5），余弦退火 / 60 epochs（每 epoch 107 个 step） |
+| 损失函数 | L1，梯度裁剪 1.0 |
+| 参数量 | 31,036,481 |
+| 测试 PSNR / SSIM | 23.74 dB / 0.9584（PSNR 最差 8.66、最好 54.52；SSIM 最差 0.5225、最好 0.9984） |
+| 验证 PSNR / SSIM（最优 epoch 36） | 22.00 dB / 0.9409 |
+| 训练时长 | 2342.5 s（39.0 分钟） |
+| GPU 显存占用 | 峰值 13,300.8 MB |
+| 结果图路径 | `reports/figures/unet_l1_curves.png`、`unet_l1_test_worst.png`、`unet_l1_test_best.png` |
+
+补充信息：
+
+- 全白/全黑检查：训练 60 轮验证退化计数始终为 0；test 630 张中 1 张（7289605764196397056）预测近白触发阈值，但该张真值本身就是近空白页（std 0.0017），预测 PSNR 54.52 dB 为全集最高，属正确预测而非退化失败
+- 泛化差距：验证 22.00 dB → test 23.74 dB（test 分布略易），无过拟合迹象；train loss 由 0.127 降到 0.015
+- 评估首次整图推理在超大图上 OOM，改用 `--tile 512` 分块推理完成
+- 损失函数对照（MSE / L1+梯度）按用户决定本次未做
+- 费用按用户要求未估算；环境：Python 3.12.3 / PyTorch 2.5.1+cu124 / RTX 4090D
+- 权重文件：`checkpoints/unet_l1_best.pt`（已 gitignore）
+- 完整指标与逐轮 history：`reports/metrics/unet_l1.json`、`reports/metrics/unet_l1_test.json`
+
+![训练曲线](../reports/figures/unet_l1_curves.png)
+
+![测试集最差样本](../reports/figures/unet_l1_test_worst.png)
+
+![测试集最好样本](../reports/figures/unet_l1_test_best.png)
+
+### 结论和下一步修改
+
+1. 主实验达到全部验收标准：曲线完整、无退化失败（1 张阈值报警经核查为空白页的正确预测）、训练时长 39.0 分钟有记录。
+2. test PSNR 23.74 dB / SSIM 0.9584，且 test 优于 val，按日期留出的协议下没有过拟合，数据量是主要瓶颈。
+3. 下一步可尝试 README 中列出的方向：pix2pix 式对抗损失提升锐度、感知损失、可微 SSIM 损失，以及 MSE / L1+梯度的对照实验。
+
+---
+
 ## 实验 03 ｜ 2026-09-22 ｜ Level 3：AlexNet / ResNet-18 on Fashion-MNIST
 
 本次跑两个模型，超参数完全一致，差异只来自网络结构。

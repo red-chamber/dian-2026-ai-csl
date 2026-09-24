@@ -48,7 +48,7 @@ from common.utils import (  # noqa: E402
     save_metrics,
     set_seed,
 )
-from data import build_loaders, split_pairs  # noqa: E402
+from data import HOLDOUT_DATE, TRAIN_DATES, build_loaders, split_pairs  # noqa: E402
 from engine import build_scheduler, run_training  # noqa: E402
 from losses import LOSS_NAMES, build_loss  # noqa: E402
 from model import UNet  # noqa: E402
@@ -67,6 +67,11 @@ def parse_args() -> argparse.Namespace:
                    help="训练时的随机裁剪边长（原分辨率裁剪，不缩放）")
     p.add_argument("--val-ratio", type=float, default=0.1,
                    help="留出日期里用作验证集的比例，其余作测试集")
+    p.add_argument("--train-dates", type=str, nargs="+", default=list(TRAIN_DATES),
+                   help=f"用哪几个日期训练，默认 {' '.join(TRAIN_DATES)}。"
+                        f"数据上传受限时可以用更少的日期")
+    p.add_argument("--holdout-date", type=str, default=HOLDOUT_DATE,
+                   help=f"留出作验证/测试的日期，默认 {HOLDOUT_DATE}")
     p.add_argument("--augment", action="store_true", help="开启随机缩放抖动（0.85~1.15）")
     # --- 训练 ---
     p.add_argument("--epochs", type=int, default=60, help="训练轮数")
@@ -128,8 +133,8 @@ def build_experiment_metrics(
         "params": n_params,
         "task": "handwriting removal (paired image-to-image)",
         "dataset": (
-            f"paired documents: train {split_sizes['train']} / "
-            f"val {split_sizes['val']} / test {split_sizes['test']}"
+            f"paired documents: train {'+'.join(args.train_dates)} ({split_sizes['train']} 对) / "
+            f"val+test {args.holdout_date} ({split_sizes['val']} + {split_sizes['test']} 对)"
         ),
         "input_size": f"native-resolution random crop {args.crop}x{args.crop}",
         "seed": args.seed,
@@ -179,7 +184,12 @@ def main() -> None:
     print(f"数据集    : {args.data_root}")
 
     # ---------- 数据 ----------
-    splits = split_pairs(args.data_root, val_ratio=args.val_ratio)
+    splits = split_pairs(
+        args.data_root,
+        val_ratio=args.val_ratio,
+        train_dates=tuple(args.train_dates),
+        holdout_date=args.holdout_date,
+    )
     loaders = build_loaders(
         splits,
         crop_size=args.crop,

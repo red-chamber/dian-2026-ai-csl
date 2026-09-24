@@ -17,7 +17,8 @@
 | **3 经典网络** | 理解 AlexNet → VGG → ResNet 的演进，并掌握 U-Net 的编码器-解码器与跳跃连接 | `level3_classic_networks/` | 在已有代码基础上分别实现 AlexNet、ResNet |
 | **4 U-Net 擦除** | 用 U-Net 做手写内容擦除：保留印刷文字/表格/题目结构，擦掉手写部分 | `level4_unet/` | 输出 PSNR/SSIM 演化曲线；结果不出现全白/全黑；记录训练时长与费用（预算约 30 元） |
 
-> 当前进度：Level 0、Level 1、Level 2、Level 3 已完成；Level 4 代码就绪、待训练。
+> 当前进度：Level 0 至 Level 4 全部完成。Level 4 在远端 RTX 4090D 上训练 60 轮，
+> test PSNR 23.74 dB / SSIM 0.9584。
 > 详见 [`docs/learning-log.md`](docs/learning-log.md)。
 
 ## 硬件与软件环境
@@ -87,7 +88,7 @@ dian-2026-ai-csl/
 │       ├── train.py                #   命令行接口 + 训练
 │       ├── infer.py                #   单张图片推理
 │       └── compare.py              #   经典网络对比
-├── level4_unet/                    # 🚧 代码就绪，待训练
+├── level4_unet/                    # ✅ 已完成（test PSNR 23.74 dB / SSIM 0.9584）
 │   ├── README.md                   #   数据集、U-Net 结构、损失与指标、验收对照
 │   ├── configs/README.md           #   为什么用命令行参数而不是配置文件
 │   └── src/
@@ -343,16 +344,17 @@ CNN 净多救回的 90 张图。四角度完整对比见 [`level2_cnn/README.md`
 
 ### Level 4：U-Net 手写内容擦除 on 配对文档数据
 
-_待训练。数据集地址、U-Net 结构、损失与指标设计、验收标准逐条对照见
-[`level4_unet/README.md`](level4_unet/README.md)；训练后把数字填进那里的对比结果表。_
+远端 RTX 4090D 训练，L1 损失，60 轮中最优在第 36 轮。数据集结构、U-Net、损失与指标设计、
+验收标准逐条对照见 [`level4_unet/README.md`](level4_unet/README.md)。
 
 | 指标 | 值 |
 |---|---|
-| 模型 / 参数量 | U-Net base_channels=64 / _待填_ |
-| 测试集 PSNR | _待填_ dB |
-| 测试集 SSIM | _待填_ |
-| 全白/全黑检查 | _待填_ |
-| 训练时长 / 预估费用 | _待填_ 小时 / _待填_ 元 |
+| 模型 / 参数量 | U-Net base_channels=64 / 31,036,481 |
+| 验证 PSNR / SSIM（最优） | 22.00 dB / 0.9409 |
+| 测试集 PSNR | 23.74 dB（最差 8.66 / 最好 54.52） |
+| 测试集 SSIM | 0.9584（最差 0.5225 / 最好 0.9984） |
+| 全白/全黑检查 | 验证 60 轮 0 次退化；test 1/630 近白，该张真值本身即空白页、预测 PSNR 全集最高，非失败 |
+| 训练时长 / 预估费用 | 0.65 小时（39.0 分钟）/ 本次未估算 |
 
 ## 已知问题
 

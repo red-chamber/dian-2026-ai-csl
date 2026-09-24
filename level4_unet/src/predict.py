@@ -93,6 +93,8 @@ def predict_full(
     stride = max(1, tile - overlap)
 
     # 累加所有块的结果再除以覆盖次数。用 float32 累加，避免多次相加的精度损失。
+    # 累加器建在 image 所在的设备上（和 prediction 一致），最后再整体搬回 CPU ——
+    # 否则就地相加会因为两个张量分处 CPU / GPU 而报错。
     accumulator = torch.zeros_like(image)
     counts = torch.zeros_like(image)
 
@@ -109,11 +111,11 @@ def predict_full(
             if pad_h or pad_w:
                 prediction = prediction[..., : prediction.shape[-2] - pad_h, : prediction.shape[-1] - pad_w]
 
-            accumulator[..., y0:y1, x0:x1] += prediction.cpu()
+            accumulator[..., y0:y1, x0:x1] += prediction
             counts[..., y0:y1, x0:x1] += 1.0
 
     # 防止某处没被覆盖导致除零（正常情况下 counts 全为 1 以上）
-    return accumulator / counts.clamp(min=1.0)
+    return (accumulator / counts.clamp(min=1.0)).cpu()
 
 
 def evaluate_dataset(

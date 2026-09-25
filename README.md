@@ -90,7 +90,6 @@ dian-2026-ai-csl/
 │       └── compare.py              #   经典网络对比
 ├── level4_unet/                    # ✅ 已完成（test PSNR 23.74 dB / SSIM 0.9584）
 │   ├── README.md                   #   数据集、U-Net 结构、损失与指标、验收对照
-│   ├── configs/README.md           #   为什么用命令行参数而不是配置文件
 │   └── src/
 │       ├── data.py                 #   配对数据集、尺寸处理、按日期划分
 │       ├── model.py                #   U-Net
@@ -103,10 +102,13 @@ dian-2026-ai-csl/
 │       ├── infer.py                #   单张 / 批量推理
 │       └── evaluate.py             #   测试集评估与验收检查
 ├── data/
-│   ├── raw/                        # 原始数据（.gitignore 已忽略）
-│   ├── processed/                  # 处理后数据（忽略）
-│   └── splits/                     # 训练/验证/测试划分
-├── checkpoints/                    # 模型权重（忽略）
+│   ├── README.md                   #   目录说明、各 Level 的数据放哪
+│   ├── raw/                        #   原始数据（忽略）；MNIST 等也下到这里
+│   ├── processed/                  #   处理后数据（忽略）
+│   └── splits/                     #   训练/验证/测试划分
+├── checkpoints/
+│   ├── README.md                   #   命名约定、权重里存了什么
+│   └── *.pt                        #   模型权重（忽略）
 └── reports/
     ├── figures/                    # Loss / PSNR / SSIM 曲线
     └── samples/                    # 推理结果对比图
@@ -177,6 +179,34 @@ GPU calculation result: 0.001543294871225953
 
 完整的问题排查记录（`conda: command not found`、Git 身份、SSH 端口、`nvidia-smi` 与 `torch.version.cuda` 版本差异等）见
 [`level0_environment/README.md`](level0_environment/README.md) 与 [`docs/learning-log.md`](docs/learning-log.md)。
+
+### Level 4 的实际运行环境与上面不同
+
+上面的环境是 Level 0–3 实际使用的。实验 01–03 的 `reports/metrics/*.json` 里记录的 `env` 都是 `python 3.11.9 / torch 2.11.0+cu128`，与 `environment.yml` 一致。
+
+Level 4 不在本机跑，租的是远端 AutoDL 的 RTX 4090D（24 GB 显存）。原因是默认超参按 24 GB 显存设定（原分辨率随机裁剪 384×384、batch size 16），实测显存峰值 13,300.8 MB，本机 RTX 5060 Laptop 的 8 GB 装不下。租用按小时计费，预算 30 元。
+
+两边的环境逐项对照：
+
+| 项目 | 本机（Level 0–3） | 远端 AutoDL（Level 4） |
+| --- | --- | --- |
+| 系统 | WSL2 / Ubuntu 24.04.4 | AutoDL 实例 |
+| Python | 3.11.9 | 3.12.3 |
+| PyTorch | 2.11.0+cu128 | 2.5.1+cu124 |
+| CUDA runtime | 12.8 | 12.4 |
+| GPU | RTX 5060 Laptop，8 GB | RTX 4090D，24 GB |
+
+所以复现 Level 4 有两条路：
+
+一是用本机环境把占用降下来。把裁剪降到 256、batch 降到 8 之后，8 GB 显存可以跑通流程（`level4_unet/src/train.py` 的文件头里有同样说明）。但超参变了，得到的数值不会和记录里的一致，只能验证代码能跑：
+
+```bash
+python level4_unet/src/train.py --data-root /path/to/dataset --crop 256 --batch-size 8
+```
+
+二是用同规格的 24 GB 显卡按默认超参跑，才能复现实验 04 与实验 05 的数值。
+
+每个实验的 `reports/metrics/*.json` 都带一个 `env` 字段，记录了当时的 Python、PyTorch、CUDA runtime 与 GPU 型号，可以直接核对某一组数值是在哪套环境里跑出来的。
 
 ## 数据集获取与目录放置
 
